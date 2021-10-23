@@ -49,7 +49,6 @@ def train_one_epoch(dataloader,
         # init some statistics code
         data_time.update(time.time() - start_time)
         _, imgs, targets = batch_data
-        print("In the training function targets.shape = ", targets.shape)
         global_step = num_iters_per_epoch * (epoch - 1) + batch_idx + 1
         batch_size = imgs.size(0)
 
@@ -57,7 +56,8 @@ def train_one_epoch(dataloader,
         targets = targets.to('cuda', non_blocking=True)
         imgs = imgs.to('cuda', non_blocking=True)
         # forward the model
-        total_loss, outputs = model(imgs, targets)
+        loss = model(imgs, targets)
+        total_loss = loss["total_loss"]
         # backward the model
         total_loss.backward()
         # optimizer's update
@@ -76,12 +76,7 @@ def train_one_epoch(dataloader,
         losses.update(to_python_float(total_loss.data), batch_size)
         batch_time.update(time.time() - start_time)
 
-        if tb_writer is not None:
-            if (global_step % configs.tensorboard_freq) == 0:
-                tensorboard_log = get_tensorboard_log(model)
-                tb_writer.add_scalar('avg_loss', losses.avg, global_step)
-                for layer_name, layer_dict in tensorboard_log.items():
-                    tb_writer.add_scalars(layer_name, layer_dict, global_step)
+
 
 
         # upadate the start time

@@ -122,7 +122,7 @@ class KittiDataset(Dataset):
                 pad_label = torch.zeros((15 - n_target, 9))
                 targets   = torch.cat([targets, pad_label], 0)
             else:
-                targets   = tragets[:15, :]
+                targets   = targets[:15, :]
 
         rgb_map = torch.from_numpy(rgb_map).float()
 

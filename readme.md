@@ -89,10 +89,10 @@ This repro implement a Sparse 3D Detection algorithm.
 1. Fix some basic bug for train.py
 2. Fix some bug for config.py
 3. Debug for Dataloader.py
+4. Now the train.py can run
 
 ### Todo list
-1. Change the label's load function for kitti_dataset.py function
-2. Change the build_yolo_target function for kitti_bev_utils
-3. Still debug for train.py
-4. Still optimize for evaluate function
-5. 
+1. Fix the loss explosure bug
+2. Checkout the yolo3d_head's output result
+3. Checkout the loss compute function for models
+4. Optimize the eval function
