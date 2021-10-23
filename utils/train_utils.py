@@ -52,7 +52,7 @@ def create_optimizer(configs, model):
     else:
         assert False, "Unknown optimizer type"
 
-    optimizer.add_param_group({'params': pg1, 'weight_decay': configs.weight_decay})  # add pg1 with weight_decay
+    optimizer.add_param_group({'params': pg1, 'weight_decay': configs.TRAIN.WEIGHT_DECAY})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
     print('Optimizer groups: %g .bias, %g Conv2d.weight, %g other' % (len(pg2), len(pg1), len(pg0)))
 
@@ -81,14 +81,16 @@ def create_lr_scheduler(optimizer, configs):
         lr_scheduler = LambdaLR(optimizer, lr_lambda=lf)
         # plot_lr_scheduler(optimizer, lr_scheduler, configs.num_epochs, save_dir=configs.logs_dir)
     elif configs.TRAIN.LR_SCHEDULER.NAME == 'warmupcosine':
-        cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim,
+        cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
                                                                       configs.TRAIN.NUM_EPOCHS,
                                                                       eta_min=configs.TRAIN.END_LR,
                                                                       last_epoch=-1)
-        scheduler = GradualWarmupScheduler(optim,
+        lr_scheduler = GradualWarmupScheduler(optimizer,
                                            multiplier=8,
                                            total_epoch=configs.TRAIN.WARMUP_EPOCHS,
                                            after_scheduler=cosine_scheduler)
+    else:
+        print("Not implement errors!!!!!!!!!!!")
         raise ValueError
 
     return lr_scheduler

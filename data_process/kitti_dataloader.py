@@ -49,8 +49,7 @@ def create_val_dataloader(configs):
     val_sampler = None
     val_dataset = KittiDataset(configs.DATA.DATA_PATH, mode='val', lidar_transforms=None, aug_transforms=None,
                                multiscale=False, num_samples=configs.DATA.NUM_SAMPLE, mosaic=False, random_padding=False)
-    if configs.distributed:
-        val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
+
     val_dataloader = DataLoader(val_dataset, batch_size=configs.DATA.BATCH_SIZE_EVAL, shuffle=False,
                                 num_workers=configs.DATA.NUM_WORKERS, sampler=val_sampler,
                                 collate_fn=val_dataset.collate_fn)
@@ -64,8 +63,7 @@ def create_test_dataloader(configs):
     test_dataset = KittiDataset(configs.DATA.DATA_PATH, mode='test', lidar_transforms=None, aug_transforms=None,
                                 multiscale=False, num_samples=configs.DATA.NUM_SAMPLE, mosaic=False, random_padding=False)
     test_sampler = None
-    if configs.distributed:
-        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
+
     test_dataloader = DataLoader(test_dataset, batch_size=configs.DATA.BATCH_SIZE, shuffle=False,
                                 num_workers=configs.DATA.NUM_WORKERS, sampler=test_sampler)
 

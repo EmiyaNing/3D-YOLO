@@ -15,12 +15,12 @@ from easydict import EasyDict as edict
 sys.path.append('./')
 
 from data_process.kitti_dataloader import create_val_dataloader
-from models.model_utils import create_model
+
 from utils.misc import AverageMeter, ProgressMeter
 from utils.evaluation_utils import post_processing, get_batch_statistics_rotated_bbox, ap_per_class, load_classes, post_processing_v2
 
 
-def evaluate_mAP(val_loader, model, configs, logger):
+def evaluate_mAP(val_loader, model, configs):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
 
@@ -52,9 +52,7 @@ def evaluate_mAP(val_loader, model, configs, logger):
             batch_time.update(time.time() - start_time)
 
             # Log message
-            if logger is not None:
-                if ((batch_idx + 1) % configs.print_freq) == 0:
-                    logger.info(progress.get_message(batch_idx))
+
 
             start_time = time.time()
 

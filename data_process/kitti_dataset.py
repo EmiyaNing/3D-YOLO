@@ -30,7 +30,6 @@ class KittiDataset(Dataset):
         root_path = os.path.abspath(os.path.dirname('3D-YOLO')).split('3D-YOLO')[0]
         root_path = os.path.join(root_path, '3D-YOLO')
         self.dataset_dir = root_path + dataset_dir
-        print(self.dataset_dir)
         
         assert mode in ['train', 'val', 'test'], 'Invalid mode: {}'.format(mode)
         self.mode = mode
