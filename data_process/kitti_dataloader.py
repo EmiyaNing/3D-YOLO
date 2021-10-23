@@ -37,14 +37,11 @@ def create_train_dataloader(configs):
                                  aug_transforms=train_aug_transforms, multiscale=configs.DATA.MULTISCALE,
                                  num_samples=configs.DATA.NUM_SAMPLE, mosaic=configs.TRAIN.MOSASIC,
                                  random_padding=configs.DATA.RANDOM_PAD)
-    train_sampler = None
-    if configs.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, batch_size=configs.DATA.BATCH_SIZE, shuffle=(train_sampler is None),
-                                num_workers=configs.DATA.NUM_WORKERS, sampler=train_sampler,
+    train_dataloader = DataLoader(train_dataset, batch_size=configs.DATA.BATCH_SIZE, shuffle=True,
+                                num_workers=configs.DATA.NUM_WORKERS, sampler=None,
                                   collate_fn=train_dataset.collate_fn)
 
-    return train_dataloader, train_sampler
+    return train_dataloader
 
 
 def create_val_dataloader(configs):
@@ -91,16 +88,17 @@ if __name__ == '__main__':
     sys.path.append("..")
     from configs import get_config
     configs = get_config()
+    configs.DATA.BATCH_SIZE = 1
 
 
-    dataloader, _ = create_train_dataloader(configs)
+    dataloader = create_train_dataloader(configs)
     print('len train dataloader: {}'.format(len(dataloader)))
 
 
     print('\n\nPress n to see the next sample >>> Press Esc to quit...')
 
     for batch_i, (img_files, imgs, targets) in enumerate(dataloader):
-        if not (configs.mosaic and configs.show_train_data):
+        if not (configs.TRAIN.MOSASIC):
             img_file = img_files[0]
             img_rgb = cv2.imread(img_file)
             calib = kitti_data_utils.Calibration(img_file.replace(".png", ".txt").replace("image_2", "calib"))
@@ -108,11 +106,11 @@ if __name__ == '__main__':
             img_rgb = show_image_with_boxes(img_rgb, objects_pred, calib, False)
 
         # target has (b, cl, x, y, z, h, w, l, im, re)
-        targets[:, 2:8] *= configs.img_size
-
+        targets[:, 2:8] *= configs.DATA.IMG_SIZE
         img_bev = imgs.squeeze() * 255
+        print(img_bev.shape)
         img_bev = img_bev.permute(1, 2, 0).numpy().astype(np.uint8)
-        img_bev = cv2.resize(img_bev, (configs.img_size, configs.img_size))
+        img_bev = cv2.resize(img_bev, (configs.DATA.IMG_SIZE, configs.DATA.IMG_SIZE))
 
         # Draw rotated box
         for c, x, y, z, h, w, l, im, re in targets[:, 1:].numpy():
@@ -121,7 +119,7 @@ if __name__ == '__main__':
 
         img_bev = cv2.rotate(img_bev, cv2.ROTATE_180)
 
-        if configs.mosaic and configs.show_train_data:
+        if configs.TRAIN.MOSASIC:
             cv2.imshow('mosaic_sample', img_bev)
         else:
             out_img = merge_rgb_to_bev(img_rgb, img_bev, output_width=configs.output_width)
