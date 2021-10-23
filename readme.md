@@ -83,4 +83,16 @@ This repro implement a Sparse 3D Detection algorithm.
 3. Test the evaluate.py result and try to test the mAP in kitti's way
 4. Draw attention map for yolo3d-yolox
 5. Make a list about bag of trick and bag of free
-6. Try to finetune the yolox model in 3d detection sence
+6. Try to finetune the yolox model in 3d detection 
+
+### 2021/10/23
+1. Fix some basic bug for train.py
+2. Fix some bug for config.py
+3. Debug for Dataloader.py
+
+### Todo list
+1. Change the label's load function for kitti_dataset.py function
+2. Change the build_yolo_target function for kitti_bev_utils
+3. Still debug for train.py
+4. Still optimize for evaluate function
+5. 

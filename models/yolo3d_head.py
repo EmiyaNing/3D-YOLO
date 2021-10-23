@@ -272,7 +272,6 @@ class YOLOX_3DHead(nn.Module):
         bbox_preds = torch.cat([outputs[:, :, 3:9], outputs[:, :, 2].unsqueeze(-1)], 2)
         obj_preds  = outputs[:, :, 9].unsqueeze(-1)
         cls_preds  = outputs[:, :, 10:]
-
         nlabel = (labels.sum(dim=2) > 0).sum(dim=1)  # number of objects
         total_num_anchors = outputs.shape[1]
         x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]

@@ -49,6 +49,7 @@ def train_one_epoch(dataloader,
         # init some statistics code
         data_time.update(time.time() - start_time)
         _, imgs, targets = batch_data
+        print("In the training function targets.shape = ", targets.shape)
         global_step = num_iters_per_epoch * (epoch - 1) + batch_idx + 1
         batch_size = imgs.size(0)
 
