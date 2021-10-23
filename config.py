@@ -7,11 +7,15 @@ _C.BASE = ['']
 
 # data settings
 _C.DATA = CN()
-_C.DATA.BATCH_SIZE = 256 #256 # train batch_size for single GPU
-_C.DATA.BATCH_SIZE_EVAL = 8 #64 # val batch_size for single GPU
+_C.DATA.BATCH_SIZE = 4 #256 # train batch_size for single GPU
+_C.DATA.BATCH_SIZE_EVAL = 4 #64 # val batch_size for single GPU
 _C.DATA.DATA_PATH = '/dataset/kitti/' # path to dataset
 _C.DATA.DATASET = 'kitti' # dataset name
 _C.DATA.NUM_WORKERS = 2 # number of data loading threads
+_C.DATA.IMG_SIZE = 608
+_C.DATA.MULTISCALE = True
+_C.DATA.NUM_SAMPLE = None
+_C.DATA.RANDOM_PAD = True
 
 # model settings
 _C.MODEL = CN()
@@ -42,6 +46,7 @@ _C.TRAIN.GRAD_CLIP = 1.0
 _C.TRAIN.ACCUM_ITER = 1 #1
 _C.TRAIN.PRINT_STEP = 5
 _C.TRAIN.LOG_DIR = './log/'
+_C.TRAIN.MOSASIC = True
 
 _C.TRAIN.LR_SCHEDULER = CN()
 _C.TRAIN.LR_SCHEDULER.NAME = 'warmupcosine'
