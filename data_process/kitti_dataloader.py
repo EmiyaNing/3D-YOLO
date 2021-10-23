@@ -28,9 +28,9 @@ def create_train_dataloader(configs):
     ], p=0.66)
 
     train_aug_transforms = Compose([
-        Horizontal_Flip(p=configs.hflip_prob),
-        Cutout(n_holes=configs.cutout_nholes, ratio=configs.cutout_ratio, fill_value=configs.cutout_fill_value,
-               p=configs.cutout_prob)
+        Horizontal_Flip(p=configs.DATA.HFLIP_PROB),
+        Cutout(n_holes=configs.DATA.CUTOUT_NHOLES, ratio=configs.DATA.CUTOUT_RATIO, fill_value=configs.DATA.CUTOUT_FILL_VALUE,
+               p=configs.DATA.CUTOUT_PROB)
     ], p=1.)
 
     train_dataset = KittiDataset(configs.DATA.DATA_PATH, mode='train', lidar_transforms=train_lidar_transforms,
@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
     import sys
     sys.path.append("..")
-    from config import get_config
+    from configs import get_config
     configs = get_config()
 
 

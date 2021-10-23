@@ -10,7 +10,7 @@ from config import get_config
 from data_process.kitti_dataloader import create_train_dataloader, create_val_dataloader
 from utils.train_utils import create_optimizer, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
 from utils.misc import AverageMeter
-from config import get_config, update_config
+from configs import get_config, update_config
 from evaluate import evaluate_mAP
 
 parser = argparse.ArgumentParser('YOLO3D-YOLOX')
