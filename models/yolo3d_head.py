@@ -291,7 +291,7 @@ class YOLOX_3DHead(nn.Module):
             num_gts += num_gt
             if num_gt == 0:
                 cls_target = outputs.new_zeros((0, self.num_classes))
-                reg_target = outputs.new_zeros((0, 6))
+                reg_target = outputs.new_zeros((0, 7))
                 obj_target = outputs.new_zeros((total_num_anchors, 1))
                 fg_mask = outputs.new_zeros(total_num_anchors).bool()
             else:
@@ -365,7 +365,11 @@ class YOLOX_3DHead(nn.Module):
 
 
         cls_targets = torch.cat(cls_targets, 0)
-        reg_targets = torch.cat(reg_targets, 0)
+        try:
+            reg_targets = torch.cat(reg_targets, 0)
+        except RuntimeError:
+            print(reg_targets)
+        #reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
         fg_masks = torch.cat(fg_masks, 0)
 

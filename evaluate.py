@@ -38,14 +38,14 @@ def evaluate_mAP(val_loader, model, configs):
             # Extract labels
             labels += targets[:, 1].tolist()
             # Rescale x, y, w, h of targets ((box_idx, class, x, y, z, h, w, l, im, re))
-            targets[:, 2:4] *= configs.img_size
-            targets[:, 5:8] *= configs.img_size
+            targets[:, 2:4] *= configs.DATA.IMG_SIZE
+            targets[:, 5:8] *= configs.DATA.IMG_SIZE
             imgs = imgs.to(configs.device, non_blocking=True)
 
             outputs = model(imgs)
-            outputs = post_processing_v2(outputs, conf_thresh=configs.conf_thresh, nms_thresh=configs.nms_thresh)
+            outputs = post_processing_v2(outputs, conf_thresh=configs.EVAL.CONF_THRESH, nms_thresh=configs.EVAL.NMS_THRESH)
 
-            sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=configs.iou_thresh)
+            sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=configs.EVAL.IOU_THRESH)
 
             # measure elapsed time
             # torch.cuda.synchronize()

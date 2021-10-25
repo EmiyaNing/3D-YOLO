@@ -149,7 +149,7 @@ def build_yolo_target(labels):
             l1 = l / (bc["maxX"] - bc["minX"])
 
             # cls, y, x, z, h, w ,l, im, re
-            target.append([cl, y1, x1, z1, h1, w1, l1, math.sin(float(yaw)), math.cos(float(yaw))])
+            target.append([cl, y1, x1, z1, h1, w1, l1, yaw])
 
     return np.array(target, dtype=np.float32)
 

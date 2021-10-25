@@ -70,7 +70,8 @@ def train_one_epoch(dataloader,
             optimizer.zero_grad()
         if global_step % configs.TRAIN.PRINT_STEP == 0:
             print("In Step ", batch_idx, " / ", global_step, " Now avg loss = ", losses.avg)
-            print("Now the total_loss = ", total_loss)
+            #print("Now the total_loss = ", total_loss)
+            #print("Now the loss = ", loss)
 
         # update the static information
         losses.update(to_python_float(total_loss.data), batch_size)
@@ -135,12 +136,12 @@ def main():
             if global_ap is not None:
                 if AP.mean() > global_ap:
                     model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
-                    save_best_checkpoint(configs.best_dir, AP.mean(), model_state_dict, utils_state_dict, epoch)
+                    save_best_checkpoint(configs.SAVE, AP.mean(), model_state_dict, utils_state_dict, epoch)
                 global_ap = AP.mean()
             else:
                 global_ap = AP.mean()
                 model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
-                save_checkpoint(configs.checkpoint_dir, configs.saved_fn, model_state_dict, utils_state_dict, epoch)
+                save_checkpoint(configs.SAVE, configs.saved_fn, model_state_dict, utils_state_dict, epoch)
             if tb_writer is not None:
                 tb_writer.add_scalars('Validation', val_metrics_dict, epoch)
 

@@ -96,3 +96,13 @@ This repro implement a Sparse 3D Detection algorithm.
 2. Checkout the yolo3d_head's output result
 3. Checkout the loss compute function for models
 4. Optimize the eval function
+
+### 2021/10/24
+1. Change the build_yolo_target function's some code to make the length of target equal 8
+2. Find a bug, in yolo3d_head.py the reg_target may be empty.
+
+### Todo list
+1. Fix the bug in yolo3d_head.py
+2. Implement the 3d iouloss for this mode
+3. Finish the train process
+

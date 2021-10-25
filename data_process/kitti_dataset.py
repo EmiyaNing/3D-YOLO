@@ -114,12 +114,12 @@ class KittiDataset(Dataset):
 
         # on image space: targets are formatted as (box_idx, class, x, y, z, h, w, l, im, re)
         n_target = len(target)
-        targets = torch.zeros((n_target, 9))
+        targets = torch.zeros((n_target, 8))
         if n_target > 0:
             targets = torch.from_numpy(target)
             # ensure one image's label will not beyond 15
             if n_target < 15:
-                pad_label = torch.zeros((15 - n_target, 9))
+                pad_label = torch.zeros((15 - n_target, 8))
                 targets   = torch.cat([targets, pad_label], 0)
             else:
                 targets   = targets[:15, :]

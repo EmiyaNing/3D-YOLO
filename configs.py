@@ -13,7 +13,7 @@ _C.DATA.BATCH_SIZE_EVAL = 4 #64 # val batch_size for single GPU
 _C.DATA.DATA_PATH = '/dataset/kitti/' # path to dataset
 _C.DATA.DATASET = 'kitti' # dataset name
 _C.DATA.NUM_WORKERS = 2 # number of data loading threads
-_C.DATA.IMG_SIZE = 608
+_C.DATA.IMG_SIZE = 512
 _C.DATA.MULTISCALE = True
 _C.DATA.NUM_SAMPLE = None
 _C.DATA.RANDOM_PAD = True
@@ -69,6 +69,7 @@ _C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
 # misc
 _C.SAVE = "./output"
 _C.TAG = "default"
+_C.SAVE_FN = "YOLO3DX"
 _C.SAVE_FREQ = 20 # freq to save chpt
 _C.REPORT_FREQ = 10 # freq to logging info
 _C.VALIDATE_FREQ = 20 # freq to do validation
