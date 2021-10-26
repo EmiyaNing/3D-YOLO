@@ -124,3 +124,22 @@ class SmoothL1Loss(nn.Module):
         loss_yaw = self.crit(p_yaw, t_yaw).mean()
         loss_all = loss_x + loss_y + loss_z + loss_h + loss_w + loss_l + loss_yaw
         return loss_all
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduce=True):
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduce = reduce
+        self.BCE_loss = nn.BCEWithLogitsLoss(reduction="none")
+
+    def forward(self, inputs, targets):
+        bce_loss = self.BCE_loss(inputs, targets)
+        pt = torch.exp(-bce_loss)
+        F_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
+        if self.reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
+        

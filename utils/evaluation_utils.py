@@ -13,6 +13,7 @@ import sys
 import tqdm
 
 import torch
+import torchvision
 import numpy as np
 from shapely.geometry import Polygon
 
@@ -312,3 +313,50 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
             output[image_i] = torch.stack(keep_boxes)
 
     return output
+
+
+def postprocess_not_concern_rotate(prediction, num_classes, conf_thre=0.7, nms_thre=0.45):
+    '''
+    In this version post process function we don't concern the rotate corner.
+    Just use the yolox's post function to process the prediction.
+    Args:
+        Prediction           A should be a boxes list with shape [batch_size, box_num, 14].
+                             In last dimension the element should be:
+                             truck, occlued, im, re, x, y, z, h, w, l, object_conf, class_pred
+    '''
+    box_corner = prediction.new(prediction.shape[0], prediction.shape[1], 5+num_classes)
+    box_corner[:, :, 0] = prediction[:, :, 4] - prediction[:, :, 8] / 2
+    box_corner[:, :, 1] = prediction[:, :, 5] - prediction[:, :, 9] / 2
+    box_corner[:, :, 2] = prediction[:, :, 4] + prediction[:, :, 8] / 2
+    box_corner[:, :, 3] = prediction[:, :, 5] + prediction[:, :, 9] / 2
+    box_corner[:, :, 4:] = prediction[:, :, 10:]
+    output = [None for _ in range(len(box_corner))]
+    for i, img_pred in enumerate(box_corner):
+        if not img_pred.size(0):
+            continue
+
+        class_conf, class_pred = torch.max(img_pred[:, 5:5 + num_classes], 1, keepdim=True)
+        conf_mask = (img_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
+        detection = torch.cat((img_pred[:, :5], class_conf, class_pred.float()), 1)
+        detection = detection[conf_mask]
+        '''if not detection.size(0):
+            print("\n\n")
+            print("continue one image....fuck....")
+            print("conf_mask = ", conf_mask)
+            print("\n\n")
+            continue'''
+
+        nms_out_index = torchvision.ops.nms(
+            detection[:, :4],
+            detection[:, 4] * detection[:, 5],
+            nms_thre
+        )
+        detection = detection[nms_out_index]
+        if output[i] is None:
+            output[i] = detection
+        else:
+            output[i] = torch.cat((output[i], detection))
+    
+    return output
+    
+    

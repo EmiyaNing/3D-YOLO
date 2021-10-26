@@ -17,7 +17,7 @@ sys.path.append('./')
 from data_process.kitti_dataloader import create_val_dataloader
 
 from utils.misc import AverageMeter, ProgressMeter
-from utils.evaluation_utils import post_processing, get_batch_statistics_rotated_bbox, ap_per_class, load_classes, post_processing_v2
+from utils.evaluation_utils import postprocess_not_concern_rotate, get_batch_statistics_rotated_bbox, ap_per_class, load_classes
 
 
 def evaluate_mAP(val_loader, model, configs):
@@ -33,18 +33,15 @@ def evaluate_mAP(val_loader, model, configs):
     with torch.no_grad():
         start_time = time.time()
         for batch_idx, batch_data in enumerate(tqdm(val_loader)):
-            print("Now start to evaluate...")
             data_time.update(time.time() - start_time)
             _, imgs, targets = batch_data
             # Extract labels
             labels += targets[:, 1].tolist()
-            # Rescale x, y, w, h of targets ((box_idx, class, x, y, z, h, w, l, im, re))
-            targets[:, 2:4] *= configs.DATA.IMG_SIZE
-            targets[:, 5:8] *= configs.DATA.IMG_SIZE
+            
             imgs = imgs.to(torch.device('cuda'), non_blocking=True)
 
             outputs = model(imgs)
-            outputs = post_processing_v2(outputs, conf_thresh=0.5, nms_thresh=0.5)
+            outputs = postprocess_not_concern_rotate(outputs, num_classes=3,conf_thre=0.01, nms_thre=0.5)
 
             sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=0.5)
 
@@ -53,12 +50,10 @@ def evaluate_mAP(val_loader, model, configs):
             batch_time.update(time.time() - start_time)
 
             # Log message
-            print("Now  have evaluate ", batch_idx)
-            print("Now the outputs.shape = ", outputs.shape)
 
 
             start_time = time.time()
-
+        print(sample_metrics)
         # Concatenate sample statistics
         true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
         precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)

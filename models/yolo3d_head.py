@@ -23,7 +23,7 @@ import torch.nn.functional as F
 
 from utils.boxes import bboxes_iou
 
-from .losses import IOUloss,IOU3Dloss
+from .losses import IOUloss,IOU3Dloss, FocalLoss
 from .net_blocks import BaseConv, DWConv
 
 
@@ -66,7 +66,8 @@ class YOLOX_3DHead(nn.Module):
         self.use_l1 = False
         self.l1_loss  = nn.L1Loss(reduction="none")
         self.yaw_loss = nn.SmoothL1Loss(reduction="none")
-        self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
+        #self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
+        self.bcewithlog_loss = FocalLoss(1, 5, False)
         self.iou_loss = IOU3Dloss(reduction="none")
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
@@ -153,6 +154,7 @@ class YOLOX_3DHead(nn.Module):
         x_shifts     = []
         y_shifts     = []
         expanded_strides = []
+        obj_outputs  = []
 
         for k, (cls_conv, reg_conv, occlu_conv, stride_t, x) in enumerate(
             zip(self.cls_convs, self.reg_convs, self.occlu_convs, self.strides, xin)
@@ -186,6 +188,7 @@ class YOLOX_3DHead(nn.Module):
                     [truc_output.sigmoid(), occ_output.sigmoid(), yaw_output.sigmoid(),
                      reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1
                 )
+                obj_outputs.append(obj_output)
             outputs.append(output)
         if self.training:
             # get loss
@@ -202,6 +205,13 @@ class YOLOX_3DHead(nn.Module):
             outputs = torch.cat(
                 [x.flatten(start_dim=2) for x in outputs], dim=2
             ).permute(0, 2, 1)
+            conf     = outputs[:, : ,10]
+            conf_big = conf > 0.01
+            print_obj= conf[conf_big]
+            print("Now the print_obj.shape =  ", print_obj.shape)
+            torch.set_printoptions(profile="full")
+            print(print_obj)
+            #print("Now outputs some basic predict ", outputs[0, :15, :])
             return self.decode_outputs(outputs, dtype=xin[0].type())
 
 

@@ -10,7 +10,7 @@ from models.yolo3dx import YOLO3DX
 
 from data_process.kitti_dataloader import create_train_dataloader, create_val_dataloader
 from utils.train_utils import create_optimizer, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
-from utils.train_utils import to_python_float, get_tensorboard_log
+from utils.train_utils import to_python_float
 from utils.misc import AverageMeter
 from configs import get_config, update_config
 from evaluate import evaluate_mAP
@@ -131,6 +131,8 @@ def main():
 
         train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
         if (epoch > 50) and (epoch % configs.SAVE_FREQ == 0):
+            #model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
+            #save_checkpoint("./output/", "yolo3dx", model_state_dict, utils_state_dict, epoch)
             print('number of batches in val_dataloader: {}'.format(len(val_dataloader)))
             precision, recall, AP, f1, ap_class = evaluate_mAP(val_dataloader, model, configs)
             val_metrics_dict = {
