@@ -56,63 +56,55 @@ class IOUloss(nn.Module):
         return loss
 
 class IOU3Dloss(nn.Module):
-    def __init__(self, reduction="none", loss_type="giou"):
+    """
+        Only caculate the BEV iou loss.
+    """
+    def __init__(self, reduction="none", loss_type="iou"):
         super().__init__()
         self.reduction = reduction
         self.loss_type = loss_type
 
     def forward(self, pred, target):
-        assert pred.size() == target.size(), "Unmatch size of pred and target"
-        device  = pred.device
-        n_boxes = pred.size(0)
+        assert pred.shape[0] == target.shape[0]
 
-        t_x, t_y, t_z, t_h, t_w, t_l, t_yaw = target.t()
-        t_corners = get_corners_3d(t_x, t_y, t_z, t_h, t_w, t_l, t_yaw)
-        t_volumes = t_h * t_w * t_l
-        t_low_hs  = t_corners[:, 0, 2]
-        t_high_hs = t_corners[:, -1, 2]
+        pred = pred.view(-1, 8)
+        target = target.view(-1, 8)
+        pred = torch.cat([pred[:, 0:2], pred[:, 4:6]], 1)
+        target = torch.cat([target[:, 0:2], target[:, 4:6]], 1)
+        tl = torch.max(
+            (pred[:, :2] - pred[:, 2:] / 2), (target[:, :2] - target[:, 2:] / 2)
+        )
+        br = torch.min(
+            (pred[:, :2] + pred[:, 2:] / 2), (target[:, :2] + target[:, 2:] / 2)
+        )
 
-        p_x, p_y, p_z, p_h, p_w, p_l, p_yaw = pred.t()
-        p_corners = get_corners_3d(p_x, p_y, p_z, p_h, p_w, p_l, p_yaw)
-        p_volumes = p_h * p_w * p_l
-        p_low_hs  = p_corners[:, 0, 2]
-        p_high_hs = p_corners[:, -1, 2]
-        ious      = []
-        giou_loss = torch.tensor([0.], device=device,dtype=torch.float)
+        area_p = torch.prod(pred[:, 2:], 1)
+        area_g = torch.prod(target[:, 2:], 1)
 
-        for box_idx in range(n_boxes):
-            p_cons, t_cons = p_corners[box_idx], t_corners[box_idx]
-            if self.loss_type == 'giou':
-                # caculate the BEV intersection_area
-                inter_area = intersection_area(p_cons[:4, :2], t_cons[:4, :2])
-            else:
-                p_poly, t_poly = cvt_box_2_polygon(p_cons[:4, :2]), cvt_box_2_polygon(t_cons[:4, :2])  # (x, y) of 4 first
-                inter_area = p_poly.intersection(t_poly).area
-            # caculate the inter height
-            low_inter_h = max(p_low_hs[box_idx], t_low_hs[box_idx])
-            high_inter_h = min(p_high_hs[box_idx], t_high_hs[box_idx])
-            inter_h = max(0., high_inter_h - low_inter_h)
-            # caculate the inter volume
-            inter_volume = inter_h * inter_area
-            union_volume = p_volumes[box_idx] + t_volumes[box_idx] - inter_volume
-            iou = inter_volume / (union_volume + 1e-16)
-            if self.loss_type == 'giou':
-                convex_conners = torch.cat((p_cons[:4, :2], t_cons[:4, :2]), dim=0)
-                hull = ConvexHull(convex_conners.clone().detach().cpu().numpy())  # done on cpu, just need indices output
-                convex_conners = convex_conners[hull.vertices]
-                convex_area = PolyArea2D(convex_conners)
-                low_convex_h = min(p_low_hs[box_idx], t_low_hs[box_idx])
-                high_convex_h = max(p_high_hs[box_idx], t_high_hs[box_idx])
-                convex_h = max(0., high_convex_h - low_convex_h)
-                convex_volume = convex_h * convex_area
-                giou_loss += 1. - (iou - (convex_volume - union_volume) / (convex_volume + 1e-16))
-            else:
-                giou_loss += 1. - iou
-            ious.append(iou)
-        if self.reduction == 'mean':
-            giou_loss = giou_loss / n_boxes
+        en = (tl < br).type(tl.type()).prod(dim=1)
+        area_i = torch.prod(br - tl, 1) * en
+        area_u = area_p + area_g - area_i
+        iou = (area_i) / (area_u + 1e-16)
 
-        return giou_loss
+        if self.loss_type == "iou":
+            loss = 1 - iou ** 2
+        elif self.loss_type == "giou":
+            c_tl = torch.min(
+                (pred[:, :2] - pred[:, 2:] / 2), (target[:, :2] - target[:, 2:] / 2)
+            )
+            c_br = torch.max(
+                (pred[:, :2] + pred[:, 2:] / 2), (target[:, :2] + target[:, 2:] / 2)
+            )
+            area_c = torch.prod(c_br - c_tl, 1)
+            giou = iou - (area_c - area_u) / area_c.clamp(1e-16)
+            loss = 1 - giou.clamp(min=-1.0, max=1.0)
+
+        if self.reduction == "mean":
+            loss = loss.mean()
+        elif self.reduction == "sum":
+            loss = loss.sum()
+
+        return loss
 
 class SmoothL1Loss(nn.Module):
     def __init__(self):

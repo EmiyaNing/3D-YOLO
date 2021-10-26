@@ -139,17 +139,17 @@ def build_yolo_target(labels):
         # ped and cyc labels are very small, so lets add some factor to height/width
         l = l + 0.3
         w = w + 0.3
-        yaw = - yaw
+        yaw = - yaw                                   # Normalize the yaw...
         if (bc["minX"] < x < bc["maxX"]) and (bc["minY"] < y < bc["maxY"]):
-            y1 = (y - bc["minY"]) / (bc["maxY"] - bc["minY"])  # we should put this in [0,1], so divide max_size  80 m
-            x1 = (x - bc["minX"]) / (bc["maxX"] - bc["minX"])  # we should put this in [0,1], so divide max_size  40 m
-            z1 = (z - bc["minZ"]) / (bc["maxZ"] - bc["minZ"])
+            y1 = (y - bc["minY"]) / (bc["maxY"] - bc["minY"]) * cnf.BEV_WIDTH # we should put this in [0,1], so divide max_size  80 m
+            x1 = (x - bc["minX"]) / (bc["maxX"] - bc["minX"]) * cnf.BEV_HEIGHT # we should put this in [0,1], so divide max_size  40 m
+            z1 = (z - bc["minZ"]) / (bc["maxZ"] - bc["minZ"]) 
             h1 = h / (bc["maxZ"] - bc["minZ"])
-            w1 = w / (bc["maxY"] - bc["minY"])
-            l1 = l / (bc["maxX"] - bc["minX"])
+            w1 = w / (bc["maxY"] - bc["minY"]) * cnf.BEV_WIDTH
+            l1 = l / (bc["maxX"] - bc["minX"]) * cnf.BEV_HEIGHT
 
             # cls, y, x, z, h, w ,l, im, re
-            target.append([cl, y1, x1, z1, h1, w1, l1, yaw])
+            target.append([cl, y1, x1, z1, h1, w1, l1, math.sin(float(yaw)), math.cos(float(yaw))])
 
     return np.array(target, dtype=np.float32)
 

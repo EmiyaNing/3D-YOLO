@@ -116,11 +116,12 @@ if __name__ == '__main__':
             bev_utils.drawRotatedBox(img_bev, x, y, w, l, yaw, cnf.colors[int(c)])
 
         img_bev = cv2.rotate(img_bev, cv2.ROTATE_180)
+        cv2.imshow('img_bev', img_bev)
 
-        if configs.TRAIN.MOSASIC:
+        '''if configs.TRAIN.MOSASIC:
             cv2.imshow('mosaic_sample', img_bev)
         else:
             out_img = merge_rgb_to_bev(img_rgb, img_bev, output_width=configs.output_width)
-            cv2.imshow('single_sample', out_img)
-        if cv2.waitKey(1000) & 0xFF == ord('q'):
+            cv2.imshow('single_sample', out_img)'''
+        if cv2.waitKey(10000) & 0xFF == ord('q'):
             break

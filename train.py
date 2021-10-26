@@ -49,7 +49,7 @@ def train_one_epoch(dataloader,
         # init some statistics code
         data_time.update(time.time() - start_time)
         _, imgs, targets = batch_data
-        global_step = num_iters_per_epoch * (epoch - 1) + batch_idx + 1
+        global_step = num_iters_per_epoch * epoch + batch_idx + 1
         batch_size = imgs.size(0)
 
         # transfer the data from cpu memory to gpu memory
@@ -58,6 +58,11 @@ def train_one_epoch(dataloader,
         # forward the model
         loss = model(imgs, targets)
         total_loss = loss["total_loss"]
+        iou_loss   = loss["iou_loss"]
+        obj_loss   = loss["conf_loss"]
+        cls_loss   = loss["cls_loss"]
+        yaw_loss   = loss["yaw_loss"]
+
         # backward the model
         total_loss.backward()
         # optimizer's update
@@ -69,7 +74,9 @@ def train_one_epoch(dataloader,
             # zero the parameter gradients
             optimizer.zero_grad()
         if global_step % configs.TRAIN.PRINT_STEP == 0:
-            print("In Step ", batch_idx, " / ", global_step, " Now avg loss = ", losses.avg)
+            print("In Step ", global_step, " / ", num_iters_per_epoch * (epoch + 1), " Now avg loss = ", losses.avg,
+                  " iou_loss = ", iou_loss.cpu().detach().numpy(), " obj_loss = ", obj_loss.cpu().detach().numpy(), 
+                  " cls_loss = ", cls_loss.cpu().detach().numpy()," yaw_loss = ", yaw_loss.cpu().detach().numpy())
             #print("Now the total_loss = ", total_loss)
             #print("Now the loss = ", loss)
 
@@ -100,7 +107,7 @@ def main():
 
     optimizer    = create_optimizer(configs, model)
     lr_scheduler = create_lr_scheduler(optimizer, configs)
-    start_epoch  = 0
+    start_epoch  = 60
     if configs.MODEL.RESUME is not None:
         utils_path = configs.MODEL.RESUME.replace('Model_', 'Utils_')
         assert os.path.isfile(configs.MODEL.RESUME), \
@@ -141,7 +148,7 @@ def main():
             else:
                 global_ap = AP.mean()
                 model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
-                save_checkpoint(configs.SAVE, configs.saved_fn, model_state_dict, utils_state_dict, epoch)
+                save_checkpoint(configs.SAVE, configs.SAVE_FN, model_state_dict, utils_state_dict, epoch)
             if tb_writer is not None:
                 tb_writer.add_scalars('Validation', val_metrics_dict, epoch)
 

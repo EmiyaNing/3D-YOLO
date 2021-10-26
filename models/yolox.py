@@ -16,7 +16,7 @@ class YOLOX(nn.Module):
         if backbone is None:
             backbone = YOLOPAFPN()
         if head is None:
-            head = YOLOXHead(80)
+            head = YOLOXHead(3)
 
         self.backbone = backbone
         self.head = head

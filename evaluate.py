@@ -33,6 +33,7 @@ def evaluate_mAP(val_loader, model, configs):
     with torch.no_grad():
         start_time = time.time()
         for batch_idx, batch_data in enumerate(tqdm(val_loader)):
+            print("Now start to evaluate...")
             data_time.update(time.time() - start_time)
             _, imgs, targets = batch_data
             # Extract labels
@@ -40,18 +41,20 @@ def evaluate_mAP(val_loader, model, configs):
             # Rescale x, y, w, h of targets ((box_idx, class, x, y, z, h, w, l, im, re))
             targets[:, 2:4] *= configs.DATA.IMG_SIZE
             targets[:, 5:8] *= configs.DATA.IMG_SIZE
-            imgs = imgs.to(configs.device, non_blocking=True)
+            imgs = imgs.to(torch.device('cuda'), non_blocking=True)
 
             outputs = model(imgs)
-            outputs = post_processing_v2(outputs, conf_thresh=configs.EVAL.CONF_THRESH, nms_thresh=configs.EVAL.NMS_THRESH)
+            outputs = post_processing_v2(outputs, conf_thresh=0.5, nms_thresh=0.5)
 
-            sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=configs.EVAL.IOU_THRESH)
+            sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=0.5)
 
             # measure elapsed time
             # torch.cuda.synchronize()
             batch_time.update(time.time() - start_time)
 
             # Log message
+            print("Now  have evaluate ", batch_idx)
+            print("Now the outputs.shape = ", outputs.shape)
 
 
             start_time = time.time()

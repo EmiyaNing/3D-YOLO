@@ -299,6 +299,7 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
         keep_boxes = []
         while detections.size(0):
             large_overlap = iou_rotated_single_vs_multi_boxes(detections[0, :8], detections[:, :8]) > nms_thresh
+            large_overlap = large_overlap.cuda()
             label_match = detections[0, -1] == detections[:, -1]
             # Indices of boxes with lower confidence scores, large IOUs and matching labels
             invalid = large_overlap & label_match

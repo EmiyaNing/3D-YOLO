@@ -15,7 +15,7 @@ The yolo3d-yolox head should predict:
 import math
 import sys
 sys.path.append('..')
-from loguru import logger
+#from loguru import logger
 
 import torch
 import torch.nn as nn
@@ -108,7 +108,7 @@ class YOLOX_3DHead(nn.Module):
                 nn.Conv2d(int(256 * width), 1, 1, 1, 0)
             )
             self.yaw_preds.append(
-                nn.Conv2d(int(256 * width), 1, 1, 1, 0)
+                nn.Conv2d(int(256 * width), 2, 1, 1, 0)
             )
             self.occlu_preds.append(
                 nn.Conv2d(int(256 * width), 1, 1, 1, 0)
@@ -129,6 +129,14 @@ class YOLOX_3DHead(nn.Module):
             b = conv.bias.view(self.n_anchors, -1)
             b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
             conv.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
+
+    def initialize_for_test(self):
+        for conv in self.cls_preds:
+            nn.init.zeros_(conv.weight)
+            nn.init.zeros_(conv.bias)
+        for conv in self.reg_preds:
+            nn.init.zeros_(conv.weight)
+            nn.init.zeros_(conv.bias)
 
     def forward(self, xin, labels=None, imgs=None):
         '''
@@ -176,7 +184,7 @@ class YOLOX_3DHead(nn.Module):
             else:
                 output = torch.cat(
                     [truc_output.sigmoid(), occ_output.sigmoid(), yaw_output.sigmoid(),
-                     reg_output, obj_output, cls_output.sigmoid()], 1
+                     reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1
                 )
             outputs.append(output)
         if self.training:
@@ -225,8 +233,8 @@ class YOLOX_3DHead(nn.Module):
         # model's output w represent the BEV's width axis length
         # model's output l represent the BEV's height axis length
         grid         = grid.view(1, -1, 2)
-        output[..., 3:5] = (output[..., 3:5] + grid) * stride
-        output[..., 7:9] = torch.exp(output[..., 7:9]) * stride
+        output[..., 4:6] = (output[..., 4:6] + grid) * stride
+        output[..., 8:10] = torch.exp(output[..., 8:10]) * stride
         return output, grid
 
 
@@ -256,8 +264,8 @@ class YOLOX_3DHead(nn.Module):
         # output y represent the BEV's width
         # model's output w represent the BEV's width axis length
         # model's output l represent the BEV's height axis length
-        outputs[..., 3:5] = (outputs[..., 3:5] + grids) * strides
-        outputs[..., 7:9] = torch.exp(outputs[..., 7:9]) * strides
+        outputs[..., 4:6] = (outputs[..., 4:6] + grids) * strides
+        outputs[..., 8:10] = torch.exp(outputs[..., 8:10]) * strides
         return outputs
 
     def get_losses(
@@ -269,9 +277,9 @@ class YOLOX_3DHead(nn.Module):
         outputs,
         dtype):
         # may occur bug
-        bbox_preds = torch.cat([outputs[:, :, 3:9], outputs[:, :, 2].unsqueeze(-1)], 2)
-        obj_preds  = outputs[:, :, 9].unsqueeze(-1)
-        cls_preds  = outputs[:, :, 10:]
+        bbox_preds = torch.cat([outputs[:, :, 4:10], outputs[:, :, 2:4]], 2)
+        obj_preds  = outputs[:, :, 10].unsqueeze(-1)
+        cls_preds  = outputs[:, :, 11:]
         nlabel = (labels.sum(dim=2) > 0).sum(dim=1)  # number of objects
         total_num_anchors = outputs.shape[1]
         x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]
@@ -295,37 +303,32 @@ class YOLOX_3DHead(nn.Module):
                 obj_target = outputs.new_zeros((total_num_anchors, 1))
                 fg_mask = outputs.new_zeros(total_num_anchors).bool()
             else:
-                gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:8]
+                gt_bboxes_per_image = labels[batch_idx, :num_gt, 1:9]
                 gt_classes = labels[batch_idx, :num_gt, 0]
                 bboxes_preds_per_image = bbox_preds[batch_idx]
 
-                try:
-                    (
-                        gt_matched_classes,
-                        fg_mask,
-                        pred_ious_this_matching,
-                        matched_gt_inds,
-                        num_fg_img,
-                    ) = self.get_assignments(  # noqa
-                        batch_idx,
-                        num_gt,
-                        total_num_anchors,
-                        gt_bboxes_per_image,
-                        gt_classes,
-                        bboxes_preds_per_image,
-                        expanded_strides,
-                        x_shifts,
-                        y_shifts,
-                        cls_preds,
-                        bbox_preds,
-                        obj_preds,
-                    )
-                except RuntimeError:
-                    logger.error(
-                        "OOM RuntimeError is raised due to the huge memory cost during label assignment. \
-                           CPU mode is applied in this batch. If you want to avoid this issue, \
-                           try to reduce the batch size or image size."
-                    )
+                #try:
+                (
+                    gt_matched_classes,
+                    fg_mask,
+                    pred_ious_this_matching,
+                    matched_gt_inds,
+                    num_fg_img,
+                ) = self.get_assignments(  # noqa
+                    batch_idx,
+                    num_gt,
+                    total_num_anchors,
+                    gt_bboxes_per_image,
+                    gt_classes,
+                    bboxes_preds_per_image,
+                    expanded_strides,
+                    x_shifts,
+                    y_shifts,
+                    cls_preds,
+                    bbox_preds,
+                    obj_preds,
+                )
+                '''except RuntimeError:
                     torch.cuda.empty_cache()
                     (
                         gt_matched_classes,
@@ -347,7 +350,7 @@ class YOLOX_3DHead(nn.Module):
                         bbox_preds,
                         obj_preds,
                         "cpu",
-                    )
+                    )'''
 
                 torch.cuda.empty_cache()
                 num_fg += num_fg_img
@@ -365,18 +368,17 @@ class YOLOX_3DHead(nn.Module):
 
 
         cls_targets = torch.cat(cls_targets, 0)
-        try:
-            reg_targets = torch.cat(reg_targets, 0)
-        except RuntimeError:
-            print(reg_targets)
+        reg_targets = torch.cat(reg_targets, 0)
+
         #reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
         fg_masks = torch.cat(fg_masks, 0)
 
         # the loss caculate way should be change.....
+        
         num_fg = max(num_fg, 1)
         loss_iou = (
-            self.iou_loss(bbox_preds.view(-1, 7)[fg_masks], reg_targets)
+            self.iou_loss(bbox_preds.view(-1, 8)[fg_masks], reg_targets)
         ).sum() / num_fg
         loss_obj = (
             self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)
@@ -388,7 +390,7 @@ class YOLOX_3DHead(nn.Module):
         ).sum() / num_fg
         loss_yaw = (
             self.yaw_loss(
-                bbox_preds[:, :, -1].view(-1, 1)[fg_masks], reg_targets[:, -1]
+                bbox_preds[:, :, -2:].view(-1, 2)[fg_masks], reg_targets[:, -2:]
             )
         ).sum() / num_fg
 
@@ -401,7 +403,8 @@ class YOLOX_3DHead(nn.Module):
             reg_weight * loss_iou,
             loss_obj,
             loss_cls,
-            num_fg / max(num_gts, 1),
+            loss_yaw, 
+            num_fg / max(num_gts, 1)
         )
 
 
@@ -480,11 +483,11 @@ class YOLOX_3DHead(nn.Module):
         # fucking the axis translation
         pred_bev_per_image_xy = bboxes_preds_per_image[:, :2]
         pred_bev_per_image_wl = bboxes_preds_per_image[:, 4:6]
-        pred_bev_per_iamge  = torch.cat([pred_bev_per_image_xy, pred_bev_per_image_wl], 1)
+        pred_bev_per_image  = torch.cat([pred_bev_per_image_xy, pred_bev_per_image_wl], 1)
 
 
         # compute bev pair_wise_ious_loss
-        pair_wise_ious = bboxes_iou(gt_bev_per_image, pred_bev_per_iamge)
+        pair_wise_ious = bboxes_iou(gt_bev_per_image, pred_bev_per_image, False)
         # get the onehot gt_classes
         gt_cls_per_image = (
             F.one_hot(gt_classes.to(torch.int64), self.num_classes)
@@ -585,7 +588,7 @@ class YOLOX_3DHead(nn.Module):
 
         # groud truth's x represent BEV's height
         # groud truth's y represent BEV's width
-        # build_yolo_target function's return is y, x, z, h, w ,l, im, re
+        # build_yolo_target function's return is width_axis, height_axis, z, h, w ,l, im, re
         gt_bboxes_per_image_l = (
             (gt_bboxes_per_image[:, 0] - 0.5 * gt_bboxes_per_image[:, 4])
             .unsqueeze(1).repeat(1, total_num_anchors)
@@ -647,7 +650,6 @@ class YOLOX_3DHead(nn.Module):
         # Dynamic K
         # ---------------------------------------------------------------
         matching_matrix = torch.zeros_like(cost)
-
         ious_in_boxes_matrix = pair_wise_ious
         n_candidate_k = min(10, ious_in_boxes_matrix.size(1))
         topk_ious, _ = torch.topk(ious_in_boxes_matrix, n_candidate_k, dim=1)
