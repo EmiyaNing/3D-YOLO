@@ -13,6 +13,7 @@ import os
 import math
 
 import torch
+import torch.nn as nn
 from torch.optim.lr_scheduler import LambdaLR, _LRScheduler
 import torch.distributed as dist
 import matplotlib.pyplot as plt
@@ -94,6 +95,31 @@ def create_lr_scheduler(optimizer, configs):
         raise ValueError
 
     return lr_scheduler
+
+
+def create_optimizer_v2(model, config):
+    lr = config.TRAIN.BASE_LR 
+    pg0, pg1, pg2 = [], [], []
+    
+    for k, v in model.named_modules():
+        if hasattr(v, "bias") and isinstance(v.bias, nn.Parameter):
+            pg2.append(v.bias)
+        if hasattr(v, nn.BatchNorm2d) or "bn" in k:
+            pg0.append(v.weight)
+        elif hasattr(v, "weight") and isinstance(v.weight, nn.Parameter):
+            pg1.append(v.weight)
+    
+    optimizer = torch.optim.SGD(
+        pg0, lr = lr, momentum=config.TRAIN.OPTIMIZER.MOMENTUM, nesterov = True
+    )
+    optimizer.add_param_group(
+        {"params": pg1, "weight_decay":config.TRAIN.WEIGHT_DECAY}
+    )
+    optimizer.add_param_group({"params":pg2})
+    return optimizer
+
+
+
 
 
 def get_saved_state(model, optimizer, lr_scheduler, epoch, configs):

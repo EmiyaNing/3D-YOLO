@@ -41,7 +41,7 @@ def evaluate_mAP(val_loader, model, configs):
             imgs = imgs.to(torch.device('cuda'), non_blocking=True)
 
             outputs = model(imgs)
-            outputs = postprocess_not_concern_rotate(outputs, num_classes=3,conf_thre=0.01, nms_thre=0.5)
+            outputs = postprocess_not_concern_rotate(outputs, num_classes=3,conf_thre=0.5, nms_thre=0.5)
 
             sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=0.5)
 

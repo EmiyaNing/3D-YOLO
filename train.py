@@ -107,7 +107,7 @@ def main():
 
     optimizer    = create_optimizer(configs, model)
     lr_scheduler = create_lr_scheduler(optimizer, configs)
-    start_epoch  = 60
+    start_epoch  = 0
     if configs.MODEL.RESUME is not None:
         utils_path = configs.MODEL.RESUME.replace('Model_', 'Utils_')
         assert os.path.isfile(configs.MODEL.RESUME), \
