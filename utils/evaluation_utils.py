@@ -336,15 +336,13 @@ def postprocess_not_concern_rotate(prediction, num_classes, conf_thre=0.7, nms_t
             continue
 
         class_conf, class_pred = torch.max(img_pred[:, 5:5 + num_classes], 1, keepdim=True)
+        print_conf = class_conf[class_conf > 0.5]
+        print("Now the print_conf.shape = ", print_conf.shape)
+        print("Now the print_conf = ", print_conf)
         conf_mask = (img_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
         detection = torch.cat((img_pred[:, :5], class_conf, class_pred.float()), 1)
         detection = detection[conf_mask]
-        '''if not detection.size(0):
-            print("\n\n")
-            print("continue one image....fuck....")
-            print("conf_mask = ", conf_mask)
-            print("\n\n")
-            continue'''
+
 
         nms_out_index = torchvision.ops.nms(
             detection[:, :4],

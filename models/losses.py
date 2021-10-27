@@ -1,6 +1,8 @@
 import sys
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import torch.cuda.amp as amp    
 from shapely.geometry import Polygon
 from scipy.spatial import ConvexHull
 
@@ -193,6 +195,9 @@ class FocalSigmoidLossFuncV2(torch.autograd.Function):
         #  logits = logits.float()
 
         probs = torch.sigmoid(logits)
+        probs = torch.where(torch.isnan(probs),
+                            torch.full_like(probs, 0),
+                            probs)
         coeff = (label - probs).abs_().pow_(gamma).neg_()
         log_probs = torch.where(logits >= 0,
                 F.softplus(logits, -1, 50),

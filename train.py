@@ -9,7 +9,7 @@ from tqdm import tqdm
 from models.yolo3dx import YOLO3DX
 
 from data_process.kitti_dataloader import create_train_dataloader, create_val_dataloader
-from utils.train_utils import create_optimizer, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
+from utils.train_utils import create_optimizer_v2, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
 from utils.train_utils import to_python_float
 from utils.misc import AverageMeter
 from configs import get_config, update_config
@@ -105,9 +105,9 @@ def main():
         model.load_state_dict(torch.load(configs.MODEL.PRETRAINED))
         print("Loaded pretrained model at {} ".format(configs.MODEL.PRETRAINED))
 
-    optimizer    = create_optimizer(configs, model)
+    optimizer    = create_optimizer_v2(model, configs)
     lr_scheduler = create_lr_scheduler(optimizer, configs)
-    start_epoch  = 0
+    start_epoch  = 50
     if configs.MODEL.RESUME is not None:
         utils_path = configs.MODEL.RESUME.replace('Model_', 'Utils_')
         assert os.path.isfile(configs.MODEL.RESUME), \

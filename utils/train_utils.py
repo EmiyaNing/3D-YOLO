@@ -18,6 +18,8 @@ from torch.optim.lr_scheduler import LambdaLR, _LRScheduler
 import torch.distributed as dist
 import matplotlib.pyplot as plt
 
+from utils.lr_scheduler import LRScheduler
+
 
 def create_optimizer(configs, model):
     """Create optimizer for training process
@@ -104,14 +106,16 @@ def create_optimizer_v2(model, config):
     for k, v in model.named_modules():
         if hasattr(v, "bias") and isinstance(v.bias, nn.Parameter):
             pg2.append(v.bias)
-        if hasattr(v, nn.BatchNorm2d) or "bn" in k:
+        if isinstance(v, nn.BatchNorm2d) or "bn" in k:
             pg0.append(v.weight)
         elif hasattr(v, "weight") and isinstance(v.weight, nn.Parameter):
             pg1.append(v.weight)
     
-    optimizer = torch.optim.SGD(
-        pg0, lr = lr, momentum=config.TRAIN.OPTIMIZER.MOMENTUM, nesterov = True
-    )
+    optimizer = torch.optim.AdamW(pg0,
+                                  lr=config.TRAIN.BASE_LR,
+                                  betas=config.TRAIN.OPTIMIZER.BETAS,
+                                  eps=config.TRAIN.OPTIMIZER.EPS,
+                                  weight_decay=config.TRAIN.WEIGHT_DECAY)
     optimizer.add_param_group(
         {"params": pg1, "weight_decay":config.TRAIN.WEIGHT_DECAY}
     )
@@ -119,7 +123,17 @@ def create_optimizer_v2(model, config):
     return optimizer
 
 
-
+def create_lr_scheduler_v2(config, iters_per_epoch):
+    lr_scheduler = LRScheduler(
+        "yoloxwarmcos",
+        config.TRAIN.BASE_LR ,
+        iters_per_epoch,
+        config.TRAIN.NUM_EPOCHS,
+        warmup_epochs = config.TRAIN.WARMUP_EPOCHS,
+        warmup_lr_start = config.TRAIN.WARMUP_START_LR,
+        no_aug_epochs = 15,
+        min_lr_ratio = 0.05)
+    return lr_scheduler
 
 
 def get_saved_state(model, optimizer, lr_scheduler, epoch, configs):

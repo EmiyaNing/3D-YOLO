@@ -548,12 +548,7 @@ class YOLOXHead(nn.Module):
             gt_bboxes_per_image = gt_bboxes_per_image.cpu()
             bboxes_preds_per_image = bboxes_preds_per_image.cpu()
         pair_wise_ious = bboxes_iou(gt_bboxes_per_image, bboxes_preds_per_image, False)
-        print("\n\n")
-        print("Now the gt_bev_per_image = ", gt_bboxes_per_image)
-        print("Now the pred_bev_per_image.shape = ", bboxes_preds_per_image.shape)
-        print("Now the pred_bev_per_image = ", bboxes_preds_per_image)
-        print("pari_wise_ious = ", pair_wise_ious)
-        print("\n\n")
+
 
         gt_cls_per_image = (
             F.one_hot(gt_classes.to(torch.int64), self.num_classes)

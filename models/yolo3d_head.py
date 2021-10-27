@@ -23,7 +23,7 @@ import torch.nn.functional as F
 
 from utils.boxes import bboxes_iou
 
-from .losses import IOUloss,IOU3Dloss, FocalLoss
+from .losses import IOUloss,IOU3Dloss, FocalLossV2
 from .net_blocks import BaseConv, DWConv
 
 
@@ -67,7 +67,7 @@ class YOLOX_3DHead(nn.Module):
         self.l1_loss  = nn.L1Loss(reduction="none")
         self.yaw_loss = nn.SmoothL1Loss(reduction="none")
         #self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
-        self.bcewithlog_loss = FocalLoss(1, 5, False)
+        self.bcewithlog_loss = FocalLossV2(0.25, 2, 'None')
         self.iou_loss = IOU3Dloss(reduction="none")
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
@@ -206,7 +206,7 @@ class YOLOX_3DHead(nn.Module):
                 [x.flatten(start_dim=2) for x in outputs], dim=2
             ).permute(0, 2, 1)
             conf     = outputs[:, : ,10]
-            conf_big = conf > 0.01
+            conf_big = conf > 0.2
             print_obj= conf[conf_big]
             print("Now the print_obj.shape =  ", print_obj.shape)
             torch.set_printoptions(profile="full")
@@ -382,6 +382,7 @@ class YOLOX_3DHead(nn.Module):
 
         #reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
+
         fg_masks = torch.cat(fg_masks, 0)
 
         # the loss caculate way should be change.....
@@ -477,6 +478,29 @@ class YOLOX_3DHead(nn.Module):
             total_num_anchors,
             num_gt,
         )
+
+        npa: int = fg_mask.sum().item()
+        if npa == 0:
+            gt_matched_classes = torch.zeros(0, device=fg_mask.device).long()
+            pred_ious_this_matching = torch.rand(0, device=fg_mask.device)
+            matched_gt_inds = gt_matched_classes
+            num_fg = npa
+
+            if mode == 'cpu':
+                gt_matched_classes = gt_matched_classes.cuda()
+                fg_mask = fg_mask.cuda()
+                pred_ious_this_matching = pred_ious_this_matching.cuda()
+                matched_gt_inds = matched_gt_inds.cuda()
+                num_fg = num_fg.cuda()
+
+            return (
+                gt_matched_classes,
+                fg_mask,
+                pred_ious_this_matching,
+                matched_gt_inds,
+                num_fg
+            )
+
         bboxes_preds_per_image = bboxes_preds_per_image[fg_mask]
         cls_preds_ = cls_preds[batch_idx][fg_mask]
         obj_preds_ = obj_preds[batch_idx][fg_mask]
@@ -498,6 +522,9 @@ class YOLOX_3DHead(nn.Module):
 
         # compute bev pair_wise_ious_loss
         pair_wise_ious = bboxes_iou(gt_bev_per_image, pred_bev_per_image, False)
+        pair_wise_ious = torch.where(torch.isnan(pair_wise_ious),
+                                     torch.full_like(pair_wise_ious, 1e-8),
+                                     pair_wise_ious)
         # get the onehot gt_classes
         gt_cls_per_image = (
             F.one_hot(gt_classes.to(torch.int64), self.num_classes)

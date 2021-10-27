@@ -42,6 +42,7 @@ def evaluate_mAP(val_loader, model, configs):
 
             outputs = model(imgs)
             outputs = postprocess_not_concern_rotate(outputs, num_classes=3,conf_thre=0.5, nms_thre=0.5)
+            print(outputs)
 
             sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=0.5)
 
