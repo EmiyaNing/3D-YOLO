@@ -64,15 +64,15 @@ def train_one_epoch(dataloader,
         yaw_loss   = loss["yaw_loss"]
 
         # backward the model
+        optimizer.zero_grad()
+        optimizer.step()
         total_loss.backward()
+        lr = lr_scheduler.update_lr(batch_idx)
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = lr
         # optimizer's update
-        if global_step % configs.TRAIN.WARMUP_EPOCHS == 0:
-            optimizer.step()
-            lr_scheduler.step()
-            if tb_writer is not None:
-                tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], global_step)
-            # zero the parameter gradients
-            optimizer.zero_grad()
+        if tb_writer is not None:
+            tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], global_step)
         if global_step % configs.TRAIN.PRINT_STEP == 0:
             print("In Step ", global_step, " / ", num_iters_per_epoch * (epoch + 1), " Now avg loss = ", losses.avg,
                   " iou_loss = ", iou_loss.cpu().detach().numpy(), " obj_loss = ", obj_loss.cpu().detach().numpy(), 
@@ -105,9 +105,11 @@ def main():
         model.load_state_dict(torch.load(configs.MODEL.PRETRAINED))
         print("Loaded pretrained model at {} ".format(configs.MODEL.PRETRAINED))
 
+    start_epoch  = 0
+    train_dataloader = create_train_dataloader(configs)
+    val_dataloader = create_val_dataloader(configs)
     optimizer    = create_optimizer_v2(model, configs)
-    lr_scheduler = create_lr_scheduler(optimizer, configs)
-    start_epoch  = 50
+    lr_scheduler = create_lr_scheduler(configs, len(train_dataloader))
     if configs.MODEL.RESUME is not None:
         utils_path = configs.MODEL.RESUME.replace('Model_', 'Utils_')
         assert os.path.isfile(configs.MODEL.RESUME), \
@@ -122,8 +124,7 @@ def main():
         start_epoch = utils_state_dict['epoch'] + 1
         print("Resume training model from checkpoint {}".format(configs.MODEL.RESUME))
 
-    train_dataloader = create_train_dataloader(configs)
-    val_dataloader = create_val_dataloader(configs)
+
 
     # epoch training loop. training model, eval model, save best model
     for epoch in range(start_epoch, configs.TRAIN.NUM_EPOCHS + 1):
