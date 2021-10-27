@@ -54,13 +54,10 @@ class YOLOX_3DHead(nn.Module):
         self.num_classes = num_classes
         self.cls_convs   = nn.ModuleList() # class branch
         self.reg_convs   = nn.ModuleList() # regresession branch
-        self.occlu_convs = nn.ModuleList() # occluded and trunch branch
         self.cls_preds   = nn.ModuleList() # class head in class branch
         self.obj_preds   = nn.ModuleList() # score head in regression branch
         self.reg_preds   = nn.ModuleList() # box3d head x,y,z,h,w,l in regression branch
         self.yaw_preds   = nn.ModuleList() # corner head in regression branch
-        self.occlu_preds = nn.ModuleList() # occlu head in occluded and trunch branch
-        self.truck_preds = nn.ModuleList() # truck head in occluded and trunch branch
         self.stems       = nn.ModuleList()
 
         self.use_l1 = False
@@ -91,13 +88,6 @@ class YOLOX_3DHead(nn.Module):
                       Conv(int(256 * width), int(256 * width), 3, 1, act=act)]
                 )
             )
-            # occlu branch
-            self.occlu_convs.append(
-                nn.Sequential(
-                    *[Conv(int(256 * width), int(256 * width), 3, 1, act=act),
-                      Conv(int(256 * width), int(256 * width), 3, 1, act=act)]
-                )
-            )
             # class head
             self.cls_preds.append(
                 nn.Conv2d(int(256 * width), self.num_classes, 1, 1, 0)
@@ -110,12 +100,6 @@ class YOLOX_3DHead(nn.Module):
             )
             self.yaw_preds.append(
                 nn.Conv2d(int(256 * width), 2, 1, 1, 0)
-            )
-            self.occlu_preds.append(
-                nn.Conv2d(int(256 * width), 1, 1, 1, 0)
-            )
-            self.truck_preds.append(
-                nn.Conv2d(int(256 * width), 1, 1, 1, 0)
             )
 
 
@@ -171,12 +155,8 @@ class YOLOX_3DHead(nn.Module):
             obj_output = self.obj_preds[k](reg_feat)
             yaw_output = self.yaw_preds[k](reg_feat)
 
-            occ_feat   = occlu_conv(occ_x)
-            occ_output = self.occlu_preds[k](occ_feat)
-            truc_output= self.truck_preds[k](occ_feat)
             if self.training:
-                output     = torch.cat([truc_output, occ_output, yaw_output,
-                                        reg_output, obj_output, cls_output], 1)
+                output     = torch.cat([yaw_output,reg_output, obj_output, cls_output], 1)
                 output, grid = self.get_output_and_grid(output, k, stride_t, xin[0].type())
                 x_shifts.append(grid[:, :, 0])
                 y_shifts.append(grid[:, :, 1])
@@ -185,8 +165,7 @@ class YOLOX_3DHead(nn.Module):
                 )
             else:
                 output = torch.cat(
-                    [truc_output.sigmoid(), occ_output.sigmoid(), yaw_output.sigmoid(),
-                     reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1
+                    [yaw_output.sigmoid(), reg_output, obj_output.sigmoid(), cls_output.sigmoid()], 1
                 )
                 obj_outputs.append(obj_output)
             outputs.append(output)
@@ -205,7 +184,7 @@ class YOLOX_3DHead(nn.Module):
             outputs = torch.cat(
                 [x.flatten(start_dim=2) for x in outputs], dim=2
             ).permute(0, 2, 1)
-            conf     = outputs[:, : ,10]
+            conf     = outputs[:, : ,8]
             conf_big = conf > 0.2
             print_obj= conf[conf_big]
             print("Now the print_obj.shape =  ", print_obj.shape)
@@ -243,8 +222,8 @@ class YOLOX_3DHead(nn.Module):
         # model's output w represent the BEV's width axis length
         # model's output l represent the BEV's height axis length
         grid         = grid.view(1, -1, 2)
-        output[..., 4:6] = (output[..., 4:6] + grid) * stride
-        output[..., 8:10] = torch.exp(output[..., 8:10]) * stride
+        output[..., 2:4] = (output[..., 2:4] + grid) * stride
+        output[..., 6:8] = torch.exp(output[..., 6:8]) * stride
         return output, grid
 
 
@@ -274,8 +253,8 @@ class YOLOX_3DHead(nn.Module):
         # output y represent the BEV's width
         # model's output w represent the BEV's width axis length
         # model's output l represent the BEV's height axis length
-        outputs[..., 4:6] = (outputs[..., 4:6] + grids) * strides
-        outputs[..., 8:10] = torch.exp(outputs[..., 8:10]) * strides
+        outputs[..., 2:4] = (outputs[..., 2:4] + grids) * strides
+        outputs[..., 6:8] = torch.exp(outputs[..., 6:8]) * strides
         return outputs
 
     def get_losses(
@@ -287,9 +266,9 @@ class YOLOX_3DHead(nn.Module):
         outputs,
         dtype):
         # may occur bug
-        bbox_preds = torch.cat([outputs[:, :, 4:10], outputs[:, :, 2:4]], 2)
-        obj_preds  = outputs[:, :, 10].unsqueeze(-1)
-        cls_preds  = outputs[:, :, 11:]
+        bbox_preds = torch.cat([outputs[:, :, 2:4], outputs[:, :, :2]], 2)
+        obj_preds  = outputs[:, :, 8].unsqueeze(-1)
+        cls_preds  = outputs[:, :, 9:]
         nlabel = (labels.sum(dim=2) > 0).sum(dim=1)  # number of objects
         total_num_anchors = outputs.shape[1]
         x_shifts = torch.cat(x_shifts, 1)  # [1, n_anchors_all]
@@ -338,29 +317,6 @@ class YOLOX_3DHead(nn.Module):
                     bbox_preds,
                     obj_preds,
                 )
-                '''except RuntimeError:
-                    torch.cuda.empty_cache()
-                    (
-                        gt_matched_classes,
-                        fg_mask,
-                        pred_ious_this_matching,
-                        matched_gt_inds,
-                        num_fg_img,
-                    ) = self.get_assignments(  # noqa
-                        batch_idx,
-                        num_gt,
-                        total_num_anchors,
-                        gt_bboxes_per_image,
-                        gt_classes,
-                        bboxes_preds_per_image,
-                        expanded_strides,
-                        x_shifts,
-                        y_shifts,
-                        cls_preds,
-                        bbox_preds,
-                        obj_preds,
-                        "cpu",
-                    )'''
 
                 torch.cuda.empty_cache()
                 num_fg += num_fg_img
