@@ -18,6 +18,8 @@ from torch.optim.lr_scheduler import LambdaLR, _LRScheduler
 import torch.distributed as dist
 import matplotlib.pyplot as plt
 
+from utils.lr_scheduler import LRScheduler
+
 
 def create_optimizer(configs, model):
     """Create optimizer for training process
@@ -119,7 +121,17 @@ def create_optimizer_v2(model, config):
     return optimizer
 
 
-
+def create_lr_scheduler_v2(config, iters_per_epoch):
+    lr_scheduler = LRScheduler(
+        "yoloxwarmcos",
+        config.TRAIN.BASE_LR ,
+        iters_per_epoch,
+        config.TRAIN.NUM_EPOCHS,
+        warmup_epochs = config.TRAIN.WARMUP_EPOCHS,
+        warmup_lr_start = config.TRAIN.WARMUP_START_LR,
+        no_aug_epochs = 15,
+        min_lr_ratio = 0.05)
+    return lr_scheduler
 
 
 def get_saved_state(model, optimizer, lr_scheduler, epoch, configs):
