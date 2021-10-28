@@ -9,7 +9,7 @@ from tqdm import tqdm
 from models.yolo3dx import YOLO3DX
 
 from data_process.kitti_dataloader import create_train_dataloader, create_val_dataloader
-from utils.train_utils import create_optimizer_v2, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
+from utils.train_utils import create_optimizer, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
 from utils.train_utils import to_python_float
 from utils.misc import AverageMeter
 from configs import get_config, update_config
@@ -62,23 +62,23 @@ def train_one_epoch(dataloader,
         obj_loss   = loss["conf_loss"]
         cls_loss   = loss["cls_loss"]
         yaw_loss   = loss["yaw_loss"]
+        axis_z_loss= loss["z_loss"]
+        total_loss.backward()
 
         # backward the model
-        optimizer.zero_grad()
-        optimizer.step()
-        total_loss.backward()
-        lr = lr_scheduler.update_lr(batch_idx)
-        for param_group in optimizer.param_groups:
-            param_group["lr"] = lr
-        # optimizer's update
-        if tb_writer is not None:
-            tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], global_step)
+        if global_step % configs.TRAIN.WARMUP_EPOCHS == 0:
+            optimizer.zero_grad()
+            optimizer.step()
+            lr_scheduler.step()
+            # optimizer's update
+            if tb_writer is not None:
+                tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], global_step)
         if global_step % configs.TRAIN.PRINT_STEP == 0:
             print("In Step ", global_step, " / ", num_iters_per_epoch * (epoch + 1), " Now avg loss = ", losses.avg,
                   " iou_loss = ", iou_loss.cpu().detach().numpy(), " obj_loss = ", obj_loss.cpu().detach().numpy(), 
-                  " cls_loss = ", cls_loss.cpu().detach().numpy()," yaw_loss = ", yaw_loss.cpu().detach().numpy())
-            #print("Now the total_loss = ", total_loss)
-            #print("Now the loss = ", loss)
+                  " cls_loss = ", cls_loss.cpu().detach().numpy()," yaw_loss = ", yaw_loss.cpu().detach().numpy(),
+                  " z_axis_loss = ", axis_z_loss.cpu().detach().numpy())
+
 
         # update the static information
         losses.update(to_python_float(total_loss.data), batch_size)
@@ -108,8 +108,9 @@ def main():
     start_epoch  = 0
     train_dataloader = create_train_dataloader(configs)
     val_dataloader = create_val_dataloader(configs)
-    optimizer    = create_optimizer_v2(model, configs)
-    lr_scheduler = create_lr_scheduler(configs, len(train_dataloader))
+    optimizer    = create_optimizer(configs, model)
+    lr_scheduler = create_lr_scheduler(optimizer, configs)
+    
     if configs.MODEL.RESUME is not None:
         utils_path = configs.MODEL.RESUME.replace('Model_', 'Utils_')
         assert os.path.isfile(configs.MODEL.RESUME), \
@@ -121,7 +122,7 @@ def main():
         utils_state_dict = torch.load(utils_path, map_location='cuda:0')
         optimizer.load_state_dict(utils_state_dict['optimizer'])
         lr_scheduler.load_state_dict(utils_state_dict['lr_scheduler'])
-        start_epoch = utils_state_dict['epoch'] + 1
+        start_epoch = utils_state_dict['epoch']
         print("Resume training model from checkpoint {}".format(configs.MODEL.RESUME))
 
 
@@ -132,8 +133,8 @@ def main():
 
         train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
         if (epoch > 50) and (epoch % configs.SAVE_FREQ == 0):
-            #model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
-            #save_checkpoint("./output/", "yolo3dx", model_state_dict, utils_state_dict, epoch)
+            model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
+            save_checkpoint("./output/", "yolo3dx", model_state_dict, utils_state_dict, epoch)
             print('number of batches in val_dataloader: {}'.format(len(val_dataloader)))
             precision, recall, AP, f1, ap_class = evaluate_mAP(val_dataloader, model, configs)
             val_metrics_dict = {
@@ -143,6 +144,7 @@ def main():
                 'f1': f1.mean(),
                 'ap_class': ap_class.mean()
             }
+            print("Now the val_result = ", val_metrics_dict)
             if global_ap is not None:
                 if AP.mean() > global_ap:
                     model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
@@ -155,10 +157,6 @@ def main():
             if tb_writer is not None:
                 tb_writer.add_scalars('Validation', val_metrics_dict, epoch)
 
-            if not configs.step_lr_in_epoch:
-                lr_scheduler.step()
-                if tb_writer is not None:
-                    tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], epoch)
 
     # close the tbwriter
     if tb_writer is not None:

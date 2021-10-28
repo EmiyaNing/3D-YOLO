@@ -61,10 +61,10 @@ class YOLOX_3DHead(nn.Module):
         self.stems       = nn.ModuleList()
 
         self.use_l1 = False
-        self.l1_loss  = nn.L1Loss(reduction="none")
+        self.l1_loss  = nn.SmoothL1Loss(reduction="none")
         self.yaw_loss = nn.SmoothL1Loss(reduction="none")
-        #self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
-        self.bcewithlog_loss = FocalLossV2(0.25, 2, 'None')
+        self.bcewithlog_loss = nn.BCEWithLogitsLoss(reduction="none")
+        #self.bcewithlog_loss = FocalLossV2(0.1, 2, 'None')
         self.iou_loss = IOU3Dloss(reduction="none")
         self.strides = strides
         self.grids = [torch.zeros(1)] * len(in_channels)
@@ -140,13 +140,12 @@ class YOLOX_3DHead(nn.Module):
         expanded_strides = []
         obj_outputs  = []
 
-        for k, (cls_conv, reg_conv, occlu_conv, stride_t, x) in enumerate(
-            zip(self.cls_convs, self.reg_convs, self.occlu_convs, self.strides, xin)
+        for k, (cls_conv, reg_conv, stride_t, x) in enumerate(
+            zip(self.cls_convs, self.reg_convs, self.strides, xin)
         ):
             x = self.stems[k](x)
             cls_x = x
             reg_x = x
-            occ_x = x
             cls_feat   = cls_conv(cls_x)
             cls_output = self.cls_preds[k](cls_feat)
 
@@ -184,13 +183,7 @@ class YOLOX_3DHead(nn.Module):
             outputs = torch.cat(
                 [x.flatten(start_dim=2) for x in outputs], dim=2
             ).permute(0, 2, 1)
-            conf     = outputs[:, : ,8]
-            conf_big = conf > 0.2
-            print_obj= conf[conf_big]
-            print("Now the print_obj.shape =  ", print_obj.shape)
-            torch.set_printoptions(profile="full")
-            print(print_obj)
-            #print("Now outputs some basic predict ", outputs[0, :15, :])
+
             return self.decode_outputs(outputs, dtype=xin[0].type())
 
 
@@ -223,7 +216,8 @@ class YOLOX_3DHead(nn.Module):
         # model's output l represent the BEV's height axis length
         grid         = grid.view(1, -1, 2)
         output[..., 2:4] = (output[..., 2:4] + grid) * stride
-        output[..., 6:8] = torch.exp(output[..., 6:8]) * stride
+        output[..., 4] = output[..., 4] * stride
+        output[..., 5:8] = torch.exp(output[..., 5:8]) * stride
         return output, grid
 
 
@@ -254,7 +248,8 @@ class YOLOX_3DHead(nn.Module):
         # model's output w represent the BEV's width axis length
         # model's output l represent the BEV's height axis length
         outputs[..., 2:4] = (outputs[..., 2:4] + grids) * strides
-        outputs[..., 6:8] = torch.exp(outputs[..., 6:8]) * strides
+        outputs[..., 4]   = outputs[..., 4] * stride
+        outputs[..., 5:8] = torch.exp(outputs[..., 5:8]) * strides
         return outputs
 
     def get_losses(
@@ -266,7 +261,7 @@ class YOLOX_3DHead(nn.Module):
         outputs,
         dtype):
         # may occur bug
-        bbox_preds = torch.cat([outputs[:, :, 2:4], outputs[:, :, :2]], 2)
+        bbox_preds = torch.cat([outputs[:, :, 2:8], outputs[:, :, :2]], 2)
         obj_preds  = outputs[:, :, 8].unsqueeze(-1)
         cls_preds  = outputs[:, :, 9:]
         nlabel = (labels.sum(dim=2) > 0).sum(dim=1)  # number of objects
@@ -338,15 +333,21 @@ class YOLOX_3DHead(nn.Module):
 
         #reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
-
         fg_masks = torch.cat(fg_masks, 0)
 
         # the loss caculate way should be change.....
+        pred_bev_z = bbox_preds.view(-1, 8)[fg_masks][:, 2]
+        pred_bev_h = bbox_preds.view(-1, 8)[fg_masks][:, 3]
+        targets_bev_z = reg_targets[:, 2]
+        targets_bev_h = reg_targets[:, 3]
         
         num_fg = max(num_fg, 1)
         loss_iou = (
             self.iou_loss(bbox_preds.view(-1, 8)[fg_masks], reg_targets)
         ).sum() / num_fg
+        loss_z_axis = (
+            self.l1_loss(pred_bev_z, targets_bev_z).mean() + self.l1_loss(pred_bev_h, targets_bev_h).mean()
+        )
         loss_obj = (
             self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)
         ).sum() / num_fg
@@ -363,7 +364,7 @@ class YOLOX_3DHead(nn.Module):
 
 
         reg_weight = 5.0
-        loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_yaw
+        loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_yaw + reg_weight * loss_z_axis
 
         return (
             loss,
@@ -371,6 +372,7 @@ class YOLOX_3DHead(nn.Module):
             loss_obj,
             loss_cls,
             loss_yaw, 
+            reg_weight * loss_z_axis,
             num_fg / max(num_gts, 1)
         )
 
@@ -476,11 +478,11 @@ class YOLOX_3DHead(nn.Module):
         pred_bev_per_image  = torch.cat([pred_bev_per_image_xy, pred_bev_per_image_wl], 1)
 
 
+
         # compute bev pair_wise_ious_loss
         pair_wise_ious = bboxes_iou(gt_bev_per_image, pred_bev_per_image, False)
-        pair_wise_ious = torch.where(torch.isnan(pair_wise_ious),
-                                     torch.full_like(pair_wise_ious, 1e-8),
-                                     pair_wise_ious)
+        #print_ious = pair_wise_ious[pair_wise_ious > 0.5]
+        #print("Now the pair_wise_ious = ", print_ious)
         # get the onehot gt_classes
         gt_cls_per_image = (
             F.one_hot(gt_classes.to(torch.int64), self.num_classes)

@@ -114,8 +114,8 @@ def create_optimizer_v2(model, config):
     optimizer = torch.optim.AdamW(pg0,
                                   lr=config.TRAIN.BASE_LR,
                                   betas=config.TRAIN.OPTIMIZER.BETAS,
-                                  eps=config.TRAIN.OPTIMIZER.EPS,
-                                  weight_decay=config.TRAIN.WEIGHT_DECAY)
+                                  eps=configs.TRAIN.OPTIMIZER.EPS,
+                                  weight_decay=configs.TRAIN.WEIGHT_DECAY)
     optimizer.add_param_group(
         {"params": pg1, "weight_decay":config.TRAIN.WEIGHT_DECAY}
     )

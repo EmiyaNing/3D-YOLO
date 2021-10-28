@@ -17,7 +17,7 @@ sys.path.append('./')
 from data_process.kitti_dataloader import create_val_dataloader
 
 from utils.misc import AverageMeter, ProgressMeter
-from utils.evaluation_utils import postprocess_not_concern_rotate, get_batch_statistics_rotated_bbox, ap_per_class, load_classes
+from utils.evaluation_utils import postprocess_not_concern_rotate, get_batch_statistics_rotated_bbox, ap_per_class, load_classes, post_processing_v2
 
 
 def evaluate_mAP(val_loader, model, configs):
@@ -41,8 +41,9 @@ def evaluate_mAP(val_loader, model, configs):
             imgs = imgs.to(torch.device('cuda'), non_blocking=True)
 
             outputs = model(imgs)
-            outputs = postprocess_not_concern_rotate(outputs, num_classes=3,conf_thre=0.5, nms_thre=0.5)
-            print(outputs)
+            outputs = post_processing_v2(outputs, conf_thresh=0.7, nms_thresh=0.7)
+            print("Now the outputs.shape = ", outputs[0].shape)
+            print("Now the outputs = ", outputs[0])
 
             sample_metrics += get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold=0.5)
 
@@ -54,7 +55,6 @@ def evaluate_mAP(val_loader, model, configs):
 
 
             start_time = time.time()
-        print(sample_metrics)
         # Concatenate sample statistics
         true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
         precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)

@@ -171,17 +171,17 @@ def get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold):
             continue
 
         output = outputs[sample_i]
-        pred_boxes = output[:, :8]
-        pred_scores = output[:, 8]
-        pred_labels = output[:, -1]
+        pred_boxes = output[:, :8].cpu().numpy()
+        pred_scores = output[:, 8].cpu().numpy()
+        pred_labels = output[:, -1].cpu().numpy()
 
         true_positives = np.zeros(pred_boxes.shape[0])
 
-        annotations = targets[targets[:, 0] == sample_i][:, 1:]
+        annotations = targets[sample_i]
         if len(annotations) > 0:
-            target_labels = annotations[:, 0]
+            target_labels = annotations[:, 0].cpu().numpy()
             detected_boxes = []
-            target_boxes = annotations[:, 1:]
+            target_boxes = annotations[:, 1:].cpu().numpy()
 
             for pred_i, (pred_box, pred_label) in enumerate(zip(pred_boxes, pred_labels)):
 
@@ -282,6 +282,11 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
         Returns detections with shape:
             (x, y, z, h, w, l, im, re, object_conf, class_score, class_pred)
     """
+    yaw      = prediction[:, :, :2]
+    box3d    = prediction[:, :, 2:8]
+    obj_conf = prediction[:, :, 8].unsqueeze(-1)
+    clas_conf= prediction[:, :, 9:]
+    prediction = torch.cat([box3d, yaw, obj_conf, clas_conf], -1)
     output = [None for _ in range(len(prediction))]
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
@@ -294,8 +299,13 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
         # Sort by it
         image_pred = image_pred[(-score).argsort()]
         class_confs, class_preds = image_pred[:, 9:].max(dim=1, keepdim=True)
+        conf_mask = image_pred[:, 8] * class_confs.squeeze() >= conf_thresh
+
         # detections: (x, y, z, h, w, l, im, re, object_conf, class_score, class_pred)
         detections = torch.cat((image_pred[:, :9].float(), class_confs.float(), class_preds.float()), dim=1)
+        detections = detections[conf_mask]
+        if not detections.size(0):
+            continue
         # Perform non-maximum suppression
         keep_boxes = []
         while detections.size(0):
@@ -322,26 +332,24 @@ def postprocess_not_concern_rotate(prediction, num_classes, conf_thre=0.7, nms_t
     Args:
         Prediction           A should be a boxes list with shape [batch_size, box_num, 14].
                              In last dimension the element should be:
-                             truck, occlued, im, re, x, y, z, h, w, l, object_conf, class_pred
+                             im, re, x, y, z, h, w, l, object_conf, class_pred
     '''
     box_corner = prediction.new(prediction.shape[0], prediction.shape[1], 5+num_classes)
-    box_corner[:, :, 0] = prediction[:, :, 4] - prediction[:, :, 8] / 2
-    box_corner[:, :, 1] = prediction[:, :, 5] - prediction[:, :, 9] / 2
-    box_corner[:, :, 2] = prediction[:, :, 4] + prediction[:, :, 8] / 2
-    box_corner[:, :, 3] = prediction[:, :, 5] + prediction[:, :, 9] / 2
-    box_corner[:, :, 4:] = prediction[:, :, 10:]
+    box_corner[:, :, 0] = prediction[:, :, 2] - prediction[:, :, 6] / 2
+    box_corner[:, :, 1] = prediction[:, :, 3] - prediction[:, :, 7] / 2
+    box_corner[:, :, 2] = prediction[:, :, 2] + prediction[:, :, 6] / 2
+    box_corner[:, :, 3] = prediction[:, :, 3] + prediction[:, :, 7] / 2
+    box_corner[:, :, 4:] = prediction[:, :, 8:]
     output = [None for _ in range(len(box_corner))]
     for i, img_pred in enumerate(box_corner):
         if not img_pred.size(0):
             continue
 
         class_conf, class_pred = torch.max(img_pred[:, 5:5 + num_classes], 1, keepdim=True)
-        print_conf = class_conf[class_conf > 0.5]
-        print("Now the print_conf.shape = ", print_conf.shape)
-        print("Now the print_conf = ", print_conf)
         conf_mask = (img_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
         detection = torch.cat((img_pred[:, :5], class_conf, class_pred.float()), 1)
         detection = detection[conf_mask]
+        out_det   = prediction[i][conf_mask]
 
 
         nms_out_index = torchvision.ops.nms(
@@ -349,11 +357,12 @@ def postprocess_not_concern_rotate(prediction, num_classes, conf_thre=0.7, nms_t
             detection[:, 4] * detection[:, 5],
             nms_thre
         )
-        detection = detection[nms_out_index]
+        #detection = detection[nms_out_index]
+        out_det    = out_det[nms_out_index]
         if output[i] is None:
-            output[i] = detection
+            output[i] = out_det
         else:
-            output[i] = torch.cat((output[i], detection))
+            output[i] = torch.cat((output[i], out_det))
     
     return output
     
