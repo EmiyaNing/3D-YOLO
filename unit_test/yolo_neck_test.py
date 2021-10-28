@@ -22,7 +22,7 @@ def test_yolo_fpn():
 
 def test_yolo_pafpn():
     model = YOLOPAFPN()
-    image = torch.rand([4, 3,604, 604], dtype=torch.float32)
+    image = torch.rand([4, 3,608, 608], dtype=torch.float32)
     result = model(image)
     print(result[0].shape)
     print(result[1].shape)
