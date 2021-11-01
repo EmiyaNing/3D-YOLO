@@ -86,12 +86,7 @@ class KittiDataset(Dataset):
         return img_file, rgb_map
 
     def load_img_with_targets(self, index):
-        """
-        Load images and targets for the training and validation phase
-        Now we should set a maxmum label's number.
-        Just add some code to padding or cut the label tensor when the label's num is less or
-        big than maxmum simple num.
-        """
+        """Load images and targets for the training and validation phase"""
 
         sample_id = int(self.sample_id_list[index])
 
@@ -114,20 +109,14 @@ class KittiDataset(Dataset):
 
         # on image space: targets are formatted as (box_idx, class, x, y, z, h, w, l, im, re)
         n_target = len(target)
-        targets = torch.zeros((n_target, 9))
+        targets = torch.zeros((n_target, 10))
         if n_target > 0:
-            targets = torch.from_numpy(target)
-            # ensure one image's label will not beyond 15
-            if n_target < 15:
-                pad_label = torch.zeros((15 - n_target, 9))
-                targets   = torch.cat([targets, pad_label], 0)
-            else:
-                targets   = targets[:15, :]
+            targets[:, 1:] = torch.from_numpy(target)
 
         rgb_map = torch.from_numpy(rgb_map).float()
 
-        '''if self.aug_transforms is not None:
-            rgb_map, targets = self.aug_transforms(rgb_map, targets)'''
+        if self.aug_transforms is not None:
+            rgb_map, targets = self.aug_transforms(rgb_map, targets)
 
         return img_file, rgb_map, targets
 
@@ -171,15 +160,15 @@ class KittiDataset(Dataset):
 
             # on image space: targets are formatted as (box_idx, class, x, y, w, l, sin(yaw), cos(yaw))
             if targets.size(0) > 0:
-                targets[:, 1] = (targets[:, 1] * w + padw) / (2 * self.img_size)
-                targets[:, 2] = (targets[:, 2] * h + padh) / (2 * self.img_size)
-                targets[:, 3] = targets[:, 3] * w / (2 * self.img_size)
-                targets[:, 4] = targets[:, 4] * h / (2 * self.img_size)
+                targets[:, 2] = (targets[:, 2] * w + padw) / (2 * self.img_size)
+                targets[:, 3] = (targets[:, 3] * h + padh) / (2 * self.img_size)
+                targets[:, 4] = targets[:, 4] * w / (2 * self.img_size)
+                targets[:, 5] = targets[:, 5] * h / (2 * self.img_size)
 
             targets_s4.append(targets)
         if len(targets_s4) > 0:
             targets_s4 = torch.cat(targets_s4, 0)
-            torch.clamp(targets_s4[:, 1:3], min=0., max=(1. - 0.5 / self.img_size), out=targets_s4[:, 1:3])
+            torch.clamp(targets_s4[:, 2:4], min=0., max=(1. - 0.5 / self.img_size), out=targets_s4[:, 2:4])
 
         return img_file_s4, img_s4, targets_s4
 
@@ -202,7 +191,7 @@ class KittiDataset(Dataset):
             valid_list = []
             for i in range(labels.shape[0]):
                 if int(labels[i, 0]) in cnf.CLASS_NAME_TO_ID.values():
-                    if self.check_point_cloud_range(labels[i, :3]):
+                    if self.check_point_cloud_range(labels[i, 1:4]):
                         valid_list.append(labels[i, 0])
 
             if len(valid_list) > 0:
@@ -227,7 +216,10 @@ class KittiDataset(Dataset):
     def collate_fn(self, batch):
         paths, imgs, targets = list(zip(*batch))
         # Remove empty placeholder targets
-        targets = [boxes.unsqueeze(0) for boxes in targets if boxes is not None]
+        targets = [boxes for boxes in targets if boxes is not None]
+        # Add sample index to targets
+        for i, boxes in enumerate(targets):
+            boxes[:, 0] = i
         targets = torch.cat(targets, 0)
         # Selects new image size every tenth batch
         if (self.batch_count % 10 == 0) and self.multiscale and (not self.mosaic):

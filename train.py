@@ -2,11 +2,12 @@ import os
 import math
 import time
 import argparse
+import copy
 import torch
 
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from models.yolo3dx import YOLO3DX
+from models.yolov5 import YOLO3D
 
 from data_process.kitti_dataloader import create_train_dataloader, create_val_dataloader
 from utils.train_utils import create_optimizer, create_lr_scheduler, get_saved_state, save_checkpoint, save_best_checkpoint
@@ -30,6 +31,16 @@ arguments = parser.parse_args()
 
 configs = get_config()
 configs = update_config(configs, arguments)
+
+
+def grad_hook(module, grad_in, grad_out):
+    print("======================= register_backward_hook_output:===================")
+    #print(grad_out)
+    for grad in grad_out:
+        print_grad = grad[grad != 0]
+        print("Now inequal zero grad.size = ", print_grad.size())
+        print("Now these grad = ", print_grad)
+    
 
 def train_one_epoch(dataloader,
                     model,
@@ -56,39 +67,32 @@ def train_one_epoch(dataloader,
         targets = targets.to('cuda', non_blocking=True)
         imgs = imgs.to('cuda', non_blocking=True)
         # forward the model
-        loss = model(imgs, targets)
-        total_loss = loss["total_loss"]
-        iou_loss   = loss["iou_loss"]
-        obj_loss   = loss["conf_loss"]
-        cls_loss   = loss["cls_loss"]
-        yaw_loss   = loss["yaw_loss"]
-        axis_z_loss= loss["z_loss"]
-        total_loss.backward()
+        loss, output = model(imgs, targets)
+        metric       = model.get_metrix()
+        
+        loss.backward()
+        #print("Now the loss.data = ", loss.data)
 
         # backward the model
-        if global_step % configs.TRAIN.WARMUP_EPOCHS == 0:
-            optimizer.zero_grad()
+        if global_step % configs.TRAIN.OPT_STEP == 0:
             optimizer.step()
-            lr_scheduler.step()
+            optimizer.zero_grad()
+            #lr_scheduler.step()
             # optimizer's update
             if tb_writer is not None:
                 tb_writer.add_scalar('LR', lr_scheduler.get_lr()[0], global_step)
         if global_step % configs.TRAIN.PRINT_STEP == 0:
-            print("In Step ", global_step, " / ", num_iters_per_epoch * (epoch + 1), " Now avg loss = ", losses.avg,
-                  " iou_loss = ", iou_loss.cpu().detach().numpy(), " obj_loss = ", obj_loss.cpu().detach().numpy(), 
-                  " cls_loss = ", cls_loss.cpu().detach().numpy()," yaw_loss = ", yaw_loss.cpu().detach().numpy(),
-                  " z_axis_loss = ", axis_z_loss.cpu().detach().numpy())
-
-
+            print("In Step ", global_step, " / ", num_iters_per_epoch * (epoch + 1), " Now avg loss = ", losses.avg)
+            #print("Models yolo_layer1_metric = ", metric['yolo_layer1'])
+            #print("Models yolo_layer2_metric = ", metric['yolo_layer2'])
+            #print("Models yolo_layer3_metric = ", metric['yolo_layer3'])
         # update the static information
-        losses.update(to_python_float(total_loss.data), batch_size)
+        losses.update(to_python_float(loss.data), batch_size)
         batch_time.update(time.time() - start_time)
-
-
-
 
         # upadate the start time
         start_time = time.time()
+
 
 
 
@@ -96,8 +100,12 @@ def main():
     global_ap = None
     tb_writer = SummaryWriter(log_dir=os.path.join(configs.TRAIN.LOG_DIR, 'tensorboard'))
 
-    model = YOLO3DX(configs)
+    model = YOLO3D(configs)
     model = model.cuda()
+    print(model)
+    #model.head.stem_conv1.register_backward_hook(grad_hook)
+    #model.head.stem_conv2.register_backward_hook(grad_hook)
+    #model.head.stem_conv3.register_backward_hook(grad_hook)
 
     if configs.MODEL.PRETRAINED is not None:
         assert os.path.isfile(configs.MODEL.PRETRAINED), \
@@ -124,17 +132,29 @@ def main():
         lr_scheduler.load_state_dict(utils_state_dict['lr_scheduler'])
         start_epoch = utils_state_dict['epoch']
         print("Resume training model from checkpoint {}".format(configs.MODEL.RESUME))
+    
+    if configs.IS_EVAL:
+        precision, recall, AP, f1, ap_class = evaluate_mAP(val_dataloader, model, configs)
+        print("Now the precision = ", precision)
+        print("Now the recall    = ", recall)
+        print("Now the AP        = ", AP)
+        print("Now the f1        = ", f1)
+        print("Now the ap_class  = ", ap_class)
+        return 0
 
+
+    #precision, recall, AP, f1, ap_class = evaluate_mAP(val_dataloader, model, configs)
 
 
     # epoch training loop. training model, eval model, save best model
     for epoch in range(start_epoch, configs.TRAIN.NUM_EPOCHS + 1):
         print(">>>> Epoch: [{}/{}]".format(epoch, configs.TRAIN.NUM_EPOCHS))
 
+        #train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
         train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
         if (epoch > 50) and (epoch % configs.SAVE_FREQ == 0):
             model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
-            save_checkpoint("./output/", "yolo3dx", model_state_dict, utils_state_dict, epoch)
+            save_checkpoint("./output/", "yolo3d", model_state_dict, utils_state_dict, epoch)
             print('number of batches in val_dataloader: {}'.format(len(val_dataloader)))
             precision, recall, AP, f1, ap_class = evaluate_mAP(val_dataloader, model, configs)
             val_metrics_dict = {
@@ -144,7 +164,11 @@ def main():
                 'f1': f1.mean(),
                 'ap_class': ap_class.mean()
             }
-            print("Now the val_result = ", val_metrics_dict)
+            print("Now the precision = ", precision)
+            print("Now the recall    = ", recall)
+            print("Now the AP        = ", AP)
+            print("Now the f1        = ", f1)
+            print("Now the ap_class  = ", ap_class)
             if global_ap is not None:
                 if AP.mean() > global_ap:
                     model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)

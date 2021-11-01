@@ -106,3 +106,20 @@ This repro implement a Sparse 3D Detection algorithm.
 2. Implement the 3d iouloss for this mode
 3. Finish the train process
 
+### 2021/10/28
+1. Finish the training process, and the train the yolo3d-yolox model 60 epoch
+2. Sub a branch in yolo3d-yolox's head, and now the obj_loss will increase crazyly
+3. The evaluation result output all zeros
+4. Fix the bug in training of fg_mask will output zero tensor
+5. Makesure my yolo3dx head without problem
+
+### Problem list
+1. The predict box's z axis index will occur negative
+2. The predict box's in function cvt_box_2_polygon will occur none pointer error.
+3. The objectness loss is too big
+4. May I need a new box encoder decoder way for yolox
+
+
+### YOLOV5 Problem list
+1. loss obj decreate too slow..
+2. 

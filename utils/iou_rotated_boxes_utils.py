@@ -246,7 +246,6 @@ def iou_rotated_single_vs_multi_boxes(single_box, multi_boxes):
     s_volume = s_h * s_w * s_l
     s_yaw = torch.atan2(s_im, s_re)
     s_conners = get_corners_3d_single(s_x, s_y, s_z, s_h, s_w, s_l, s_yaw)
-    print(s_conners)
     s_polygon = cvt_box_2_polygon(s_conners[:4, :2])
     s_low_h = s_conners[0, 2]
     s_high_h = s_conners[-1, 2]
