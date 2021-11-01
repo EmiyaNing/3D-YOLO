@@ -8,13 +8,13 @@ _C.BASE = ['']
 
 # data settings
 _C.DATA = CN()
-_C.DATA.BATCH_SIZE = 4 #256 # train batch_size for single GPU
-_C.DATA.BATCH_SIZE_EVAL = 4 #64 # val batch_size for single GPU
+_C.DATA.BATCH_SIZE = 8 #256 # train batch_size for single GPU
+_C.DATA.BATCH_SIZE_EVAL = 8 #64 # val batch_size for single GPU
 _C.DATA.DATA_PATH = '/dataset/kitti/' # path to dataset
 _C.DATA.DATASET = 'kitti' # dataset name
 _C.DATA.NUM_WORKERS = 2 # number of data loading threads
 _C.DATA.IMG_SIZE = 608
-_C.DATA.MULTISCALE = True
+_C.DATA.MULTISCALE = False
 _C.DATA.NUM_SAMPLE = None
 _C.DATA.RANDOM_PAD = True
 _C.DATA.HFLIP_PROB = 0.5
@@ -28,10 +28,12 @@ _C.MODEL = CN()
 _C.MODEL.TYPE = 'YOLO3D-YOLOX'
 _C.MODEL.NAME = 'YOLO3D-YOLOX'
 _C.MODEL.RESUME = None
-_C.MODEL.PRETRAINED = None
+_C.MODEL.PRETRAINED = './output/Model_yolo3d_epoch_280.pth'
 _C.MODEL.NUM_CLASSES = 3
 _C.MODEL.NUM_ANCHR = 3
 _C.MODEL.DROPOUT = 0.1
+_C.MODEL.DEPTH = 0.33
+_C.MODEL.WIDTH = 1
 
 
 _C.EVAL = CN()
@@ -45,40 +47,39 @@ _C.TRAIN = CN()
 _C.TRAIN.LAST_EPOCH = 0
 _C.TRAIN.NUM_EPOCHS = 300
 _C.TRAIN.WARMUP_EPOCHS = 5 #34 # ~ 10k steps for 4096 batch size
-_C.TRAIN.WEIGHT_DECAY = 0.01 #0.3 # 0.0 for finetune
-_C.TRAIN.BASE_LR = 0.001 #0.003 for pretrain # 0.03 for finetune
+_C.TRAIN.WEIGHT_DECAY = 5e-4 #0.3 # 0.0 for finetune
+_C.TRAIN.BASE_LR = 0.0025 #0.003 for pretrain # 0.03 for finetune
 _C.TRAIN.WARMUP_START_LR = 1e-6 #0.0
-_C.TRAIN.END_LR = 1e-5
-_C.TRAIN.GRAD_CLIP = 1.0
-_C.TRAIN.ACCUM_ITER = 1 #1
-_C.TRAIN.PRINT_STEP = 5
+_C.TRAIN.END_LR = 1e-7
+_C.TRAIN.PRINT_STEP = 10
 _C.TRAIN.LOG_DIR = './log/'
 _C.TRAIN.MOSASIC = False
+_C.TRAIN.OPT_STEP = 16
 
 _C.TRAIN.LR_SCHEDULER = CN()
-_C.TRAIN.LR_SCHEDULER.NAME = 'warmupcosine'
+_C.TRAIN.LR_SCHEDULER.NAME = 'cosine'
 _C.TRAIN.LR_SCHEDULER.MILESTONES = "30, 60, 90" # only used in StepLRScheduler
 _C.TRAIN.LR_SCHEDULER.DECAY_EPOCHS = 30 # only used in StepLRScheduler
 _C.TRAIN.LR_SCHEDULER.DECAY_RATE = 0.1 # only used in StepLRScheduler
 
 _C.TRAIN.OPTIMIZER = CN()
-_C.TRAIN.OPTIMIZER.NAME = 'adamw'
+_C.TRAIN.OPTIMIZER.NAME = 'adam'
 _C.TRAIN.OPTIMIZER.EPS = 1e-8
 _C.TRAIN.OPTIMIZER.BETAS = (0.9, 0.999)  # for adamW
-_C.TRAIN.OPTIMIZER.MOMENTUM = 0.9
+_C.TRAIN.OPTIMIZER.MOMENTUM = 0.949
 
 # misc
 _C.SAVE = "./output"
 _C.TAG = "default"
 _C.SAVE_FN = "YOLO3DX"
-_C.SAVE_FREQ = 20 # freq to save chpt
+_C.SAVE_FREQ = 5 # freq to save chpt
 _C.REPORT_FREQ = 10 # freq to logging info
 _C.VALIDATE_FREQ = 20 # freq to do validation
 _C.SEED = 42
-_C.EVAL = False # run evaluation only
 _C.LOCAL_RANK = 0
 _C.NGPUS = -1
 _C.LOG_DIR = './logs'
+_C.IS_EVAL = True
 
 
 def _update_config_from_file(config, cfg_file):

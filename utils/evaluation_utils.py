@@ -11,6 +11,7 @@
 from __future__ import division
 import sys
 import tqdm
+import time
 
 import torch
 import torchvision
@@ -171,17 +172,17 @@ def get_batch_statistics_rotated_bbox(outputs, targets, iou_threshold):
             continue
 
         output = outputs[sample_i]
-        pred_boxes = output[:, :8].cpu().numpy()
-        pred_scores = output[:, 8].cpu().numpy()
-        pred_labels = output[:, -1].cpu().numpy()
+        pred_boxes = output[:, :8]
+        pred_scores = output[:, 8]
+        pred_labels = output[:, -1]
 
         true_positives = np.zeros(pred_boxes.shape[0])
 
-        annotations = targets[sample_i]
+        annotations = targets[targets[:, 0] == sample_i][:, 1:]
         if len(annotations) > 0:
-            target_labels = annotations[:, 0].cpu().numpy()
+            target_labels = annotations[:, 0]
             detected_boxes = []
-            target_boxes = annotations[:, 1:].cpu().numpy()
+            target_boxes = annotations[:, 1:]
 
             for pred_i, (pred_box, pred_label) in enumerate(zip(pred_boxes, pred_labels)):
 
@@ -282,11 +283,6 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
         Returns detections with shape:
             (x, y, z, h, w, l, im, re, object_conf, class_score, class_pred)
     """
-    yaw      = prediction[:, :, :2]
-    box3d    = prediction[:, :, 2:8]
-    obj_conf = prediction[:, :, 8].unsqueeze(-1)
-    clas_conf= prediction[:, :, 9:]
-    prediction = torch.cat([box3d, yaw, obj_conf, clas_conf], -1)
     output = [None for _ in range(len(prediction))]
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
@@ -299,18 +295,12 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
         # Sort by it
         image_pred = image_pred[(-score).argsort()]
         class_confs, class_preds = image_pred[:, 9:].max(dim=1, keepdim=True)
-        conf_mask = image_pred[:, 8] * class_confs.squeeze() >= conf_thresh
-
         # detections: (x, y, z, h, w, l, im, re, object_conf, class_score, class_pred)
         detections = torch.cat((image_pred[:, :9].float(), class_confs.float(), class_preds.float()), dim=1)
-        detections = detections[conf_mask]
-        if not detections.size(0):
-            continue
         # Perform non-maximum suppression
         keep_boxes = []
         while detections.size(0):
             large_overlap = iou_rotated_single_vs_multi_boxes(detections[0, :8], detections[:, :8]) > nms_thresh
-            large_overlap = large_overlap.cuda()
             label_match = detections[0, -1] == detections[:, -1]
             # Indices of boxes with lower confidence scores, large IOUs and matching labels
             invalid = large_overlap & label_match
@@ -321,7 +311,6 @@ def post_processing_v2(prediction, conf_thresh=0.95, nms_thresh=0.4):
             detections = detections[~invalid]
         if len(keep_boxes) > 0:
             output[image_i] = torch.stack(keep_boxes)
-
     return output
 
 

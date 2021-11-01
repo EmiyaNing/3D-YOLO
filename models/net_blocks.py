@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class SiLU(nn.Module):
@@ -10,6 +11,18 @@ class SiLU(nn.Module):
         return x * torch.sigmoid(x)
 
 
+class Mish(nn.Module):
+    '''
+    Describe:
+        Mish activation function.
+    '''
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        x = x * (torch.tanh(F.softplus(x)))
+        return x
+
 def get_activation(name="silu", inplace=True):
     if name == "silu":
         module = nn.SiLU(inplace=inplace)
@@ -19,6 +32,10 @@ def get_activation(name="silu", inplace=True):
         module = nn.LeakyReLU(0.1, inplace=inplace)
     elif name == "sigmoid":
         module = nn.Sigmoid()
+    elif name == 'gelu':
+        module = nn.GeLU(inplace=inplace)
+    elif name == 'mish':
+        module = Mish()
     else:
         raise AttributeError("Unsupported act type: {}".format(name))
     return module
@@ -44,12 +61,14 @@ class BaseConv(nn.Module):
         )
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = get_activation(act, inplace=True)
+        self.initialize_weight()
   
-    def initialize_test(self):
-        nn.init.zeros_(self.conv.weight)
-        #nn.init.ones_(self.conv.bias)
-        nn.init.zeros_(self.bn.weight)
-        nn.init.zeros_(self.bn.bias)
+
+    
+    def initialize_weight(self):
+        nn.init.xavier_normal_(self.conv.weight)
+        #nn.init.xavier_normal_(self.bn.weight)
+        #nn.init.xavier_normal_(self.bn.bias)
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))

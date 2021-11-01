@@ -145,12 +145,15 @@ class YoloLayer(nn.Module):
         :param img_size: default 608
         :return:
         """
+        #print("Now the x.shape = ", x.shape)
+        #print("Now the targets.shape = ", targets.shape)
         self.img_size = img_size
         self.use_giou_loss = use_giou_loss
         self.device = x.device
         num_samples, _, _, grid_size = x.size()
 
         prediction = x.view(num_samples, self.num_anchors, self.num_classes + 9, grid_size, grid_size)
+        #print("Now the prediction.shape = ", prediction.shape)
         prediction = prediction.permute(0, 1, 3, 4, 2).contiguous()
         # prediction size: [num_samples, num_anchors, grid_size, grid_size, num_classes + 9]
 
@@ -215,6 +218,10 @@ class YoloLayer(nn.Module):
 
             loss_conf_obj = F.binary_cross_entropy(pred_conf[obj_mask], tconf[obj_mask], reduction=self.reduction)
             loss_conf_noobj = F.binary_cross_entropy(pred_conf[noobj_mask], tconf[noobj_mask], reduction=self.reduction)
+            #print("Now the loss_conf_obj = ", loss_conf_obj)
+            #print("Now the loss_conf_noobj = ", loss_conf_noobj)
+            #print("Now the pred_conf[obj_mask] = ", pred_conf[obj_mask])
+            #print("Now the tconf[obj_mask] = ", tconf[obj_mask])
             loss_cls = F.binary_cross_entropy(pred_cls[obj_mask], tcls[obj_mask], reduction=self.reduction)
 
             if self.use_giou_loss:
