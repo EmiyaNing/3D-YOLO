@@ -122,4 +122,14 @@ This repro implement a Sparse 3D Detection algorithm.
 
 ### YOLOV5 Problem list
 1. loss obj decreate too slow..
-2. 
+
+
+### 2021/11/2
+1. Fix the training bug, and now the best map = 0.5774
+2. Add a 3d conv conponent for the model
+3. Finsh a 3D conv backbone
+
+### Todo list
+1. Finish the dataset to let 3d backbone can be run
+2. Add a aux_branch for point segment to enhance the model's ability
+3. Try to run the SA-SSD code

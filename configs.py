@@ -28,12 +28,12 @@ _C.MODEL = CN()
 _C.MODEL.TYPE = 'YOLO3D-YOLOX'
 _C.MODEL.NAME = 'YOLO3D-YOLOX'
 _C.MODEL.RESUME = None
-_C.MODEL.PRETRAINED = './output/Model_yolo3d_epoch_280.pth'
+_C.MODEL.PRETRAINED = None
 _C.MODEL.NUM_CLASSES = 3
 _C.MODEL.NUM_ANCHR = 3
 _C.MODEL.DROPOUT = 0.1
 _C.MODEL.DEPTH = 0.33
-_C.MODEL.WIDTH = 1
+_C.MODEL.WIDTH = 0.5
 
 
 _C.EVAL = CN()
@@ -79,7 +79,7 @@ _C.SEED = 42
 _C.LOCAL_RANK = 0
 _C.NGPUS = -1
 _C.LOG_DIR = './logs'
-_C.IS_EVAL = True
+_C.IS_EVAL = False
 
 
 def _update_config_from_file(config, cfg_file):
