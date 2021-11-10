@@ -8,8 +8,8 @@ _C.BASE = ['']
 
 # data settings
 _C.DATA = CN()
-_C.DATA.BATCH_SIZE = 8 #256 # train batch_size for single GPU
-_C.DATA.BATCH_SIZE_EVAL = 8 #64 # val batch_size for single GPU
+_C.DATA.BATCH_SIZE = 4 #256 # train batch_size for single GPU
+_C.DATA.BATCH_SIZE_EVAL = 4 #64 # val batch_size for single GPU
 _C.DATA.DATA_PATH = '/dataset/kitti/' # path to dataset
 _C.DATA.DATASET = 'kitti' # dataset name
 _C.DATA.NUM_WORKERS = 2 # number of data loading threads
@@ -25,7 +25,7 @@ _C.DATA.CUTOUT_FILL_VALUE = 0.
 
 # model settings
 _C.MODEL = CN()
-_C.MODEL.TYPE = 'YOLO3D-YOLOX'
+_C.MODEL.TYPE = '3D-BACKBONE'
 _C.MODEL.NAME = 'YOLO3D-YOLOX'
 _C.MODEL.RESUME = None
 _C.MODEL.PRETRAINED = None
@@ -33,7 +33,9 @@ _C.MODEL.NUM_CLASSES = 3
 _C.MODEL.NUM_ANCHR = 3
 _C.MODEL.DROPOUT = 0.1
 _C.MODEL.DEPTH = 0.33
-_C.MODEL.WIDTH = 0.5
+_C.MODEL.WIDTH = 1.0
+_C.MODEL.INPUT_DIM = 4
+_C.MODEL.DENSE_DIM = [16, 1600, 1600]
 
 
 _C.EVAL = CN()

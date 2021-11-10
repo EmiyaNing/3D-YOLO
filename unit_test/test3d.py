@@ -11,13 +11,15 @@ from spconv.test_utils import generate_sparse_data
 def test_VxNet():
     start_t = time.time()
     data = generate_sparse_data([60, 1600, 1408], [60 * 1600 * 1408 // 2000],
-                                    3,
+                                    4,
                                     data_range=[-1, 1],
                                     with_dense=False)
     time_1  = time.time()
     features = np.ascontiguousarray(data["features"]).astype(np.float32)
     indices = np.ascontiguousarray(
         data["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
+    print(indices[:10, :])
+    print(features[:10,:])
     features = torch.from_numpy(features)
     indices  = torch.from_numpy(indices)
     model2 = VxNet(4, [16, 64, 64])

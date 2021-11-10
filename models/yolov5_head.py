@@ -5,11 +5,12 @@ from models.yolo_layer import YoloLayer
 from configs import get_config
 
 class Yolov5_Head(nn.Module):
-    def __init__(self, configs, width=1.0):
+    def __init__(self, configs):
         super().__init__()
         self.num_anchors = configs.MODEL.NUM_ANCHR 
         self.num_classes = configs.MODEL.NUM_CLASSES
         self.img_size    = configs.DATA.IMG_SIZE
+        width = configs.MODEL.WIDTH
         self.anchors_layer1 = [
             (259, 10, 10, 0, 1),
             (269, 11, 13, 0, 1),

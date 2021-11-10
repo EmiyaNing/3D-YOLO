@@ -42,13 +42,13 @@ def grad_hook(module, grad_in, grad_out):
         print("Now these grad = ", print_grad)
     
 
-def train_one_epoch(dataloader,
-                    model,
-                    optimizer,
-                    lr_scheduler,
-                    epoch,
-                    configs,
-                    tb_writer):
+def train_one_epoch_bev(dataloader,
+                        model,
+                        optimizer,
+                        lr_scheduler,
+                        epoch,
+                        configs,
+                        tb_writer):
     batch_time = AverageMeter('Time',':6.3f')
     data_time  = AverageMeter('Data',':6.3f')
     losses     = AverageMeter('Loss',':.4e')
@@ -151,7 +151,7 @@ def main():
         print(">>>> Epoch: [{}/{}]".format(epoch, configs.TRAIN.NUM_EPOCHS))
 
         #train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
-        train_one_epoch(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
+        train_one_epoch_bev(train_dataloader, model, optimizer, lr_scheduler, epoch, configs, tb_writer)
         if (epoch > 50) and (epoch % configs.SAVE_FREQ == 0):
             model_state_dict, utils_state_dict = get_saved_state(model, optimizer, lr_scheduler, epoch, configs)
             save_checkpoint("./output/", "yolo3d", model_state_dict, utils_state_dict, epoch)

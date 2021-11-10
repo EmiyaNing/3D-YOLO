@@ -133,3 +133,17 @@ This repro implement a Sparse 3D Detection algorithm.
 1. Finish the dataset to let 3d backbone can be run
 2. Add a aux_branch for point segment to enhance the model's ability
 3. Try to run the SA-SSD code
+
+### 2021/11/10
+1. Finish the Sparse 3d conv backbone
+2. Finish the yolo_pan for 3d conv backbone
+3. Finish a dataset class for voxel method data
+4. Finish a top level class for 3d conv yolo 
+
+### Todo list
+1. Create a dataloader function for 3d voxel method data
+2. Create a point-data augment method for 3d voxel method
+3. Create a train_one_epoch_conv3d for 3d conv yolo
+4. Train the model in Kitti dataset and try to improve the performance 
+5. Modify the model's output, to let the official_eval code can be use
+

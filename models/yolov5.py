@@ -7,7 +7,7 @@ class YOLO3D(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.backbone = YOLOPAFPN(depth=config.MODEL.DEPTH , width=config.MODEL.WIDTH)
-        self.head     = Yolov5_Head(config, width=config.MODEL.WIDTH)
+        self.head     = Yolov5_Head(config)
 
     def forward(self, x, targets=None):
         fpn_outs = self.backbone(x)
