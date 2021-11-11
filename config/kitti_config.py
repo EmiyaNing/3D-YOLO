@@ -20,6 +20,15 @@ boundary = {
     "maxZ": 1.27
 }
 
+boundary_voxel = {
+    "minX": 0,
+    "maxX": 80,
+    "minY": -40,
+    "maxY": 40,
+    "minZ": -2.73,
+    "maxZ": 1.27
+}
+
 # Back back (of vehicle) Point Cloud boundary for BEV
 boundary_back = {
     "minX": -50,

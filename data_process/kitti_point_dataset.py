@@ -21,8 +21,8 @@ import cv2
 sys.path.append('../')
 
 from data_process import transformation, kitti_bev_utils, kitti_data_utils
-from voxelgenerator import VoxelGenerator
-#from spconv.utils import VoxelGenerator
+#from data_process.voxelgenerator import VoxelGenerator
+from spconv.utils import VoxelGenerator
 import config.kitti_config as cnf
 
 
@@ -50,7 +50,8 @@ class KittiVoxelDataset(Dataset):
                                                                      cnf.boundary_voxel["maxY"],
                                                                      cnf.boundary_voxel["maxZ"]],
                                                 max_num_points = 25,
-                                                max_voxels=20000
+                                                max_voxels=20000,
+                                                full_mean=False
                                             )
 
         self.lidar_dir = os.path.join(self.dataset_dir, sub_folder, "velodyne")
@@ -205,55 +206,5 @@ class KittiVoxelDataset(Dataset):
         label_file = os.path.join(self.label_dir, '{:06d}.txt'.format(idx))
         # assert os.path.isfile(label_file)
         return kitti_data_utils.read_label(label_file)
-
-
-if __name__ == '__main__':
-    import argparse
-    import os
-    import time
-
-    import cv2
-    import numpy as np
-
-    import data_process.kitti_bev_utils as bev_utils
-    from data_process import kitti_data_utils
-    from utils.visualization_utils import show_image_with_boxes, merge_rgb_to_bev, invert_target
-    from torch.utils.data import DataLoader
-    import config.kitti_config as cnf
-    from models.backbone3d import DarkNet3d
-    from models.yolo3d import SparseYOLO3D
-
-    import sys
-    sys.path.append("..")
-    from configs import get_config
-    configs = get_config()
-    configs.DATA.BATCH_SIZE = 4
-    dataset  = KittiVoxelDataset(configs.DATA.DATA_PATH, mode='train', lidar_transforms=None,
-                                 aug_transforms=None, multiscale=configs.DATA.MULTISCALE,
-                                 num_samples=configs.DATA.NUM_SAMPLE, mosaic=configs.TRAIN.MOSASIC,
-                                 random_padding=configs.DATA.RANDOM_PAD)
-    dataloader = DataLoader(dataset, batch_size=configs.DATA.BATCH_SIZE, shuffle=True,
-                                num_workers=configs.DATA.NUM_WORKERS, sampler=None,
-                                collate_fn=dataset.collate_fn)
-
-    #model    = DarkNet3d(configs)
-    model     = SparseYOLO3D(configs)
-    model.eval()
-    for idx, data in enumerate(dataloader):
-        img      = data[0]
-        features = data[1]
-        coors    = data[2]
-        num_voxel= data[3]
-        target   = data[4]
-        start_t  = time.time()
-        result   = model(features, coors.int(), num_voxel)
-        end_time = time.time()
-        print("Now the spent time = ", end_time - start_t)
-        '''for key in result.keys():
-            print("Now the ", key, ".shape = ",result[key].shape)'''
-        for element in result:
-            print("Now the output's shape = ", element.shape)
-
-        
-        
+      
     

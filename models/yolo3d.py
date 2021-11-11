@@ -19,8 +19,6 @@ class SparseYOLO3D(nn.Module):
     def forward(self, features, coors, num_voxel, targets=None):
         BEVResult = self.backbone(features, coors, num_voxel)
         fpn_outs    = self.neck(BEVResult)
-        for element in fpn_outs:
-            print("In fpn_outs.shape = ", element.shape)
         if self.training:
             assert targets is not None
             loss, outputs = self.head(fpn_outs, targets)

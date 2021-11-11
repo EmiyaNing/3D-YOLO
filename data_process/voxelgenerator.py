@@ -1,5 +1,5 @@
 import numpy as np
-from points_ops import points_to_voxel
+from data_process.points_ops import points_to_voxel
 
 class VoxelGenerator:
     def __init__(self,
